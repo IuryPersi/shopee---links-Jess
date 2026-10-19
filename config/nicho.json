@@ -1,0 +1,124 @@
+{
+  "_comentario": "Tudo que define uma 'boa oferta' para o perfil mora aqui. Preset EXIGENTE (17/10/2026): so produto muito bom - nota 4,8+, 500+ vendidos, queda real 30%+, 5 por tag. Mude a vontade; o codigo le na hora. Revisado em 17/10/2026 apos auditoria (Codex + 4 analistas).",
+
+  "filtros": {
+    "_desconto": "Com historico, vale a queda REAL (desconto_minimo_real). Sem historico, vale o % anunciado pela Shopee (desconto_minimo) so para ENTRAR na lista; o produto vai para Novidades, so com o preco atual. DECISAO DO DONO 17/10/2026: o De R$ X da mensagem sai SOMENTE quando o historico do robo comprova a queda - nunca o De informado pela Shopee.",
+    "desconto_minimo": 30,
+    "desconto_minimo_real": 30,
+    "nota_minima": 4.8,
+    "vendas_minimas": 500,
+    "preco_minimo": 12.0,
+    "preco_maximo": 300.0,
+    "comissao_minima": 0.03,
+    "aceitar_sem_historico": true,
+    "max_sem_historico_por_tag": 3,
+    "max_por_tag": 5,
+    "reserva_por_tag": 6,
+    "max_por_loja_por_tag": 2,
+    "similaridade_duplicado": 0.75,
+    "nao_repetir_dias": 5,
+    "rebaixa_para_repetir": 0.05,
+    "top_do_dia": 15,
+    "_shop_types_bonus": "codigos de shopType tratados como loja oficial/indicada (A CONFIRMAR com resposta real da API: rode 'diagnostico')",
+    "shop_types_bonus": [1]
+  },
+
+  "regras_preco": {
+    "janela_dias": 30,
+    "min_dias_referencia": 3,
+    "min_cobertura_dias": 4.0,
+    "queda_minima": 0.15,
+    "tolerancia_nivel": 0.03,
+    "subida_suspeita": 0.15,
+    "queda_brusca": 0.15,
+    "abertura_variacao": 1.3
+  },
+
+  "coleta": {
+    "paginas_por_termo": 1,
+    "itens_por_pagina": 50,
+    "_ordenacoes": "2 = mais vendidos, 5 = maior comissao",
+    "ordenacoes": [2, 5],
+    "intervalo_entre_chamadas_s": 1.2,
+    "max_falhas_seguidas": 6,
+    "_subids": "marcam o link no painel de afiliados; {tag} vira o nome da tag. So letras e numeros.",
+    "subids": ["ig", "{tag}"],
+    "validade_link_dias": 7,
+    "reconferir_escolhidos": true,
+    "manter_historico_dias": 120,
+    "_copiar_para": "pastas extras que recebem a vitrine (ex.: pasta do OneDrive/Google Drive para abrir no celular)",
+    "copiar_para": []
+  },
+
+  "legenda": {
+    "cupom_do_dia": "",
+    "hashtags": ["#achadinhos", "#shopee"]
+  },
+
+  "excluir_global": ["automotivo", "automotiva", "carro", "moto", "pet", "cachorro", "gato", "racao", "aquario"],
+
+  "tags": {
+    "casa": {
+      "emoji": "🏠",
+      "buscas": ["caixa organizadora", "organizador geladeira", "tapete sala", "cortina blackout", "jogo de cama casal", "toalha de banho", "cabide veludo", "utilidades domesticas"],
+      "palavras": ["organizador", "organizadora", "tapete", "cortina", "luminaria", "abajur", "lencol", "jogo de cama", "edredom", "travesseiro", "toalha de banho", "toalha de rosto", "cabide", "almofada", "decoracao", "vaso", "prateleira", "nicho", "cesto", "porta retrato", "espelho", "capa de sofa", "manta", "cama box", "base box", "saia box", "colcha", "varal", "sapateira"],
+      "excluir": ["bebe", "infantil", "recem nascido", "maternidade", "gestante"]
+    },
+    "maternidade": {
+      "emoji": "🤰",
+      "peso": 1.5,
+      "buscas": ["bolsa maternidade", "almofada amamentacao", "sutia amamentacao", "cinta pos parto", "travesseiro gestante", "camisola amamentacao"],
+      "palavras": ["maternidade", "amamentacao", "amamentar", "gestante", "gravida", "gestacao", "pos parto", "puerperio", "bolsa maternidade", "sutia amamentacao", "absorvente seios", "absorvente de seio"],
+      "excluir": []
+    },
+    "bebe": {
+      "emoji": "👶",
+      "rotulo": "bebê",
+      "peso": 1.3,
+      "buscas": ["body bebe", "kit higiene bebe", "toalha bebe capuz", "trocador portatil", "tapete atividades bebe", "babador silicone", "enxoval bebe"],
+      "palavras": ["bebe", "recem nascido", "rn", "body bebe", "body infantil", "body manga", "macacao bebe", "mijao", "babador", "mordedor", "trocador", "fralda", "lenco umedecido", "banheira", "mosquiteiro", "chocalho", "manta bebe", "saida maternidade", "enxoval"],
+      "excluir": ["adulto", "reborn", "boneca", "feminino", "feminina", "masculino", "plus size", "lingerie", "body splash"]
+    },
+    "feminino": {
+      "emoji": "💅",
+      "buscas": ["bolsa feminina", "conjunto feminino", "vestido midi", "pijama americano", "brinco folheado", "sandalia feminina", "lingerie", "skincare kit"],
+      "palavras": ["feminina", "feminino", "mulher", "vestido", "saia midi", "saia longa", "saia jeans", "blusa", "cropped", "conjunto feminino", "pijama", "camisola", "bolsa feminina", "bolsa transversal", "brinco", "colar", "pulseira", "anel feminino", "maquiagem", "batom", "base liquida", "rimel", "skincare", "serum", "hidratante", "chapinha", "secador de cabelo", "escova secadora", "escova de cabelo", "sandalia", "rasteirinha", "salto", "sutia", "calcinha", "lingerie", "legging", "calca feminina", "biquini", "body splash"],
+      "excluir": ["masculino", "masculina", "homem", "infantil", "bebe", "box"]
+    },
+    "cozinha": {
+      "emoji": "🍳",
+      "buscas": ["jogo de panelas", "potes hermeticos", "kit cozinha silicone", "organizador cozinha", "garrafa termica", "acessorios air fryer", "tabua de corte", "escorredor de louca"],
+      "palavras": ["cozinha", "panela", "frigideira", "pote", "hermetico", "utensilio", "espatula", "concha", "silicone", "air fryer", "airfryer", "garrafa termica", "bolsa termica", "tabua", "faca", "escorredor", "porta tempero", "assadeira", "forma", "liquidificador", "mixer", "processador", "mandoline", "ralador", "cafeteira", "jarra", "talher", "prato", "copo", "caneca", "taca", "marmita"],
+      "excluir": ["brinquedo", "de brinquedo", "miniatura", "infantil"]
+    },
+    "limpeza": {
+      "emoji": "🧽",
+      "buscas": ["mop giratorio", "rodo magico", "escova limpeza eletrica", "pano microfibra", "kit limpeza", "organizador produtos limpeza", "vassoura"],
+      "palavras": ["limpeza", "limpar", "mop", "rodo", "vassoura", "esponja", "escova de limpeza", "escova limpeza", "microfibra", "pano", "balde", "flanela", "desentupidor", "aspirador", "tira manchas", "lixeira", "dispenser", "lavanderia"],
+      "excluir": ["dental", "dente", "cabelo", "maquiagem", "facial"]
+    }
+  },
+
+  "bloqueios": {
+    "_comentario": "Produto com estas palavras NUNCA entra. NBCAL: Decreto 9.579/2018, art. 5 (veda promocao comercial com desconto/cupom, inclusive por meio eletronico) de formulas para lactentes, mamadeiras, bicos e chupetas; alimentos de transicao, formula de seguimento e leites so com advertencia que uma legenda nao comporta - por isso tambem bloqueados. Conferir com advogado se for afrouxar.",
+    "nbcal": ["mamadeira", "chupeta", "chuquinha", "chuca", "bico de mamadeira", "bico mamadeira", "bico ortodontico", "bico de silicone", "bico redutor", "intermediario de silicone", "protetor de mamilo", "protetor mamilo", "protetor mamilar", "copo de transicao", "copo com bico", "alimentador infantil", "alimentador de fruta", "formula infantil", "formula de seguimento", "leite em po", "leite infantil", "leite de crescimento", "composto lacteo", "papinha", "cereal infantil", "mucilon", "farinha lactea", "aptamil", "nestogeno", "enfamil", "milupa", "similac", "nan supreme", "nan comfor", "ninho fases"],
+    "falsificacao": ["replica", "primeira linha", "1 linha", "inspired", "inspirado em", "similar ao", "contratipo", "perfume inspirado", "fragrancia inspirada", "qualidade aaa"],
+    "proibidos": ["cigarro eletronico", "vape", "pod descartavel", "arma", "simulacro", "anabolizante", "emagrecedor", "sibutramina", "remedio", "medicamento", "tadalafila", "sildenafil", "minoxidil", "termogenico", "clareador dental", "aumentar leite"]
+  },
+
+  "bloqueios_combinados": {
+    "_comentario": "Bloqueia quando a palavra aparece junto de qualquer uma do contexto (ex.: 'bico' + 'bebe'). Evita bloquear 'presilha bico de pato' de cabelo.",
+    "nbcal": [
+      {"palavra": "bico", "com": ["bebe", "mamadeira", "silicone", "ortodontico", "infantil", "recem nascido", "rn", "latex"]}
+    ]
+  },
+
+  "atencao": {
+    "_comentario": "Entra, mas com aviso para conferir antes de divulgar.",
+    "inmetro": ["cadeirinha", "bebe conforto", "assento elevacao", "berco", "andador", "chiqueirinho", "cercadinho", "carrinho de bebe", "cadeira de alimentacao", "cadeirao", "brinquedo", "mordedor", "chocalho", "pelucia", "panela de pressao", "secador", "chapinha", "escova secadora", "air fryer", "liquidificador", "cafeteira", "carregador", "extensao", "lampada", "termometro"],
+    "anvisa": ["pomada", "creme assadura", "shampoo", "protetor solar", "repelente", "progressiva", "alisante", "desinfetante", "agua sanitaria", "tira manchas", "removedor", "desengordurante", "pasta rosa", "aspirador nasal"],
+    "anatel": ["baba eletronica", "camera", "bluetooth", "fone"],
+    "sono_seguro": ["ninho redutor", "redutor de berco", "protetor de berco", "travesseiro bebe", "posicionador"],
+    "kit": ["kit enxoval", "kit higiene", "kit maternidade", "kit bebe"]
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Painel Robo Shopee (8031)",
+      "runtimeExecutable": "py",
+      "runtimeArgs": ["-3.12", "-m", "robo.painel"],
+      "port": 8031
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+# credenciais da conta de afiliado — NUNCA no git
+.env
+# historico de precos e saidas (links de afiliado da conta dela)
+dados/
+saida/
+__pycache__/
+*.pyc
+
+.env.*
+!.env.exemplo
+*.db
+*.db-*
+*.log
+*.lock
