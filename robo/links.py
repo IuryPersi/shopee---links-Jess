@@ -397,12 +397,25 @@ def examinar_link(url: str, abrir: Callable | None = None, prazo_total: float = 
             "marca_escrita": marca_colada is not None}
 
 
-def _prova_de_afiliado(r: dict) -> bool:
-    """Todas as provas EXPLICITAS do OK (40a rodada: campo ausente nunca conta a favor): a Shopee
-    redirecionou, o link colado nao trazia marcacao escrita e ela pos um ID valido an_<digitos>."""
+def _marcacao_da_shopee(r: dict) -> str | None:
+    """O ID an_<digitos> que a SHOPEE pos, com TODAS as provas explicitas (40a/41a rodadas: campo
+    ausente nunca conta a favor): ela redirecionou, o link colado nao trazia marcacao escrita e o ID
+    e valido. Qualquer frase que diga "a Shopee pos a marcacao" passa por aqui."""
     afiliado = r.get("afiliado")
-    return (r.get("estado") == "produto" and r.get("redirecionou") is True and r.get("marca_escrita") is False
-            and isinstance(afiliado, str) and bool(_ID_AFILIADO.fullmatch(afiliado)))
+    if (r.get("redirecionou") is True and r.get("marca_escrita") is False and isinstance(afiliado, str)
+            and _ID_AFILIADO.fullmatch(afiliado)):
+        return afiliado
+    return None
+
+
+def _so_utm_medium(r: dict) -> bool:
+    """A Shopee pos utm_medium=affiliates, mas SEM o ID an_<digitos>: vale dizer so isso."""
+    return r.get("afiliado") == "sim" and r.get("redirecionou") is True and r.get("marca_escrita") is False
+
+
+def _prova_de_afiliado(r: dict) -> bool:
+    """O OK: endereco de produto + marcacao da Shopee com ID valido (_marcacao_da_shopee)."""
+    return r.get("estado") == "produto" and _marcacao_da_shopee(r) is not None
 
 
 def nivel_do_exame(r: dict) -> str:
@@ -434,11 +447,11 @@ def texto_do_exame(r: dict) -> str:
         conferir = " Toque em Abrir para ver se é o produto certo e se está à venda."
         if _prova_de_afiliado(r):  # a unica frase de sucesso: so com TODAS as provas (40a rodada)
             return (f"A Shopee leva este link ao {endereco} e põe a marcação de afiliado "
-                    f"{r.get('afiliado')}.{conferir}")
+                    f"{_marcacao_da_shopee(r)}.{conferir}")
         if r.get("marca_escrita") is True:
             return (f"É o {endereco} com a marcação de afiliado escrita no próprio link colado: a Shopee "
                     "não pôs nem confirmou nada. Use o link curto gerado em Link personalizado.")
-        if r.get("afiliado") == "sim" and r.get("redirecionou") is True and r.get("marca_escrita") is False:
+        if _so_utm_medium(r):
             return (f"A Shopee leva este link ao {endereco} com utm_medium=affiliates, mas sem o ID de "
                     "afiliado (an_…) no endereço. Confira em Abrir e no painel de afiliados.")
         if r.get("afiliado"):
@@ -446,8 +459,13 @@ def texto_do_exame(r: dict) -> str:
         return (f"Leva ao {endereco}, mas a Shopee não pôs a marcação de afiliado no caminho. Se você colou "
                 "o link direto do produto, ele não é link de afiliado: gere o link em Link personalizado.")
     if r.get("estado") == "outra_pagina":
-        pos = r.get("afiliado") and r.get("redirecionou") is True and r.get("marca_escrita") is False
-        marca = " A Shopee pôs a marcação de afiliado." if pos else ""
+        # 41a rodada: a frase "a Shopee pos a marcacao" tambem aqui so com o ID valido
+        if _marcacao_da_shopee(r):
+            marca = f" A Shopee pôs a marcação de afiliado {_marcacao_da_shopee(r)}."
+        elif _so_utm_medium(r):
+            marca = " Tem utm_medium=affiliates, mas sem o ID de afiliado (an_…)."
+        else:
+            marca = ""
         return f"Abre na Shopee, mas não num endereço de produto (chegou em {r.get('destino')}).{marca}"
     if r.get("estado") == "quebrado":
         return f"Não abre: {_motivo_legivel(r.get('detalhe'))}."

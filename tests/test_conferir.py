@@ -176,6 +176,38 @@ class TestExaminarLink(unittest.TestCase):
         sim = {**base, "afiliado": "sim"}
         self.assertIn("sem o ID de afiliado", texto_do_exame(sim))
 
+    def test_frase_de_marcacao_so_com_a_prova_completa(self):  # 41a rodada: em TODO estado
+        import itertools
+        import re
+        from robo.links import _marcacao_da_shopee
+        afirma = re.compile(r"(?<!não )(?:pôs|põe) a marcação de afiliado")  # "não pôs" e negacao, vale
+        valores = itertools.product(
+            ("produto", "outra_pagina", "quebrado", "sem_resposta", None),
+            (True, False, None, "sim", 1),          # redirecionou
+            (True, False, None, 0, "nao"),          # marca_escrita
+            (None, "sim", "an_1", "an_1x", 1, "", "AN_1"))  # afiliado
+        for estado, redirecionou, marca_escrita, afiliado in valores:
+            r = {"estado": estado, "item": 1, "loja": 1, "destino": "shopee.com.br/x"}
+            for chave, valor in (("redirecionou", redirecionou), ("marca_escrita", marca_escrita),
+                                 ("afiliado", afiliado)):
+                if valor is not None:
+                    r[chave] = valor
+            texto = texto_do_exame(r)
+            if _marcacao_da_shopee(r) is None:
+                self.assertIsNone(afirma.search(texto), (r, texto))
+                self.assertNotEqual(nivel_do_exame(r), "ok", r)
+            elif estado == "produto":
+                self.assertIsNotNone(afirma.search(texto), (r, texto))  # o caso bom continua dizendo
+                self.assertEqual(nivel_do_exame(r), "ok", r)
+
+    def test_pagina_que_nao_e_de_produto_so_com_utm_medium(self):  # o caminho exato da 41a
+        campanha = "https://shopee.com.br/m/campanha?utm_medium=affiliates"
+        r = examinar_link(CURTO, abrir=abridor({CURTO: (302, campanha), campanha: (200, None)}))
+        self.assertEqual((r["estado"], r["redirecionou"], r["marca_escrita"], r["afiliado"]),
+                         ("outra_pagina", True, False, "sim"))
+        self.assertNotIn("pôs a marcação", texto_do_exame(r))
+        self.assertIn("sem o ID de afiliado", texto_do_exame(r))
+
     def test_texto_nao_quebra_com_resultado_incompleto(self):
         for r in ({}, {"estado": "produto"}, {"estado": "outra_pagina"}, {"estado": "quebrado"}, {"estado": "x"}):
             self.assertIsInstance(texto_do_exame(r), str)
@@ -351,6 +383,36 @@ class TestTelaConferir(unittest.TestCase):
         finally:
             self.P.PRAZO_CORPO = antes
         self.assertLess(time.monotonic() - inicio, 3)
+        self.assertIn(b"303", resposta)
+        self.assertIn("chegou incompleto", self.P._estado["aviso_conferir"])
+        self.assertEqual(self.chamadas, [])
+
+    def test_envio_pingado_tambem_para_no_prazo_total(self):  # 41a rodada (risco): 1 byte a cada 0,1 s
+        import socket
+        antes, self.P.PRAZO_CORPO = self.P.PRAZO_CORPO, 0.5
+        parar = threading.Event()
+        s = socket.create_connection(("127.0.0.1", self.porta), timeout=5)
+        try:
+            s.sendall((f"POST /conferir HTTP/1.1\r\nHost: 127.0.0.1:{self.porta}\r\n"
+                       f"Origin: http://127.0.0.1:{self.porta}\r\nContent-Type: application/x-www-form-urlencoded\r\n"
+                       f"Content-Length: 1000\r\n\r\nlinks=").encode())
+
+            def pingar():  # nunca fica 0,5 s parado: so o prazo TOTAL corta
+                while not parar.is_set():
+                    try:
+                        s.sendall(b"a")
+                    except OSError:
+                        return
+                    time.sleep(0.1)
+            threading.Thread(target=pingar, daemon=True).start()
+            inicio = time.monotonic()
+            resposta = s.recv(200)
+            decorrido = time.monotonic() - inicio
+        finally:
+            parar.set()
+            self.P.PRAZO_CORPO = antes
+            s.close()
+        self.assertLess(decorrido, 2.5)  # sem o prazo total, 1000 bytes pingados levariam ~100 s
         self.assertIn(b"303", resposta)
         self.assertIn("chegou incompleto", self.P._estado["aviso_conferir"])
         self.assertEqual(self.chamadas, [])
