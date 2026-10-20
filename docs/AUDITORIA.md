@@ -10,6 +10,11 @@ Auditor: Codex CLI (OpenAI), em modo somente leitura, adversarial. Mais 4 analis
   problema novo** na 37ª e na 38ª rodadas (19/10/2026). Nas palavras do auditor,
   "não identifiquei caminho concreto de bloqueio". As ressalvas dependem de
   coisas fora do código (ver *Riscos aceitos*).
+- **Conferir links** (novo em 20/10): **RESSALVAS sem nenhum problema novo** na
+  42ª rodada (20/10/2026). O auditor diz que não identificou "novo caminho
+  concreto de selo indevido, SSRF, falha no painel ou regressão da rodada".
+  Ressalvas: a suíte não foi executada pelo auditor, e falta o teste real com
+  links da conta da afiliada (é para isso que a ferramenta existe).
 
 ## Por fase
 
@@ -31,6 +36,7 @@ Auditor: Codex CLI (OpenAI), em modo somente leitura, adversarial. Mais 4 analis
 | 39 | "Conferir links" (novo, 20/10): links gerados à mão no painel de afiliados | **REPROVADO** (1): endereço de produto inventado com `utm_medium=affiliates&utm_source=an_1` escrito à mão ganhava ✓ e "Abre [nome]". Corrigido: só conta a marcação que a **Shopee** põe depois de redirecionar (marcação escrita no link colado = aviso); textos dizem "endereço do produto" e "nome no endereço", nunca existência nem comissão; prazo por conexão no painel. |
 | 40 | Mesma área | **REPROVADO** (1): resultado salvo pela versão anterior (sem os campos novos) ainda ganhava ✓ na tela. Corrigido: `conferencia.json` tem versão e a tela só mostra a atual; o ✓ exige TODAS as provas explícitas (redirecionou, sem marcação escrita, ID `an_<dígitos>` válido); prazo TOTAL para o formulário chegar. |
 | 41 | Mesma área | **REPROVADO** (1): na página que não é de produto, a frase "A Shopee pôs a marcação de afiliado" aceitava `utm_medium=affiliates` sem o ID. Corrigido: toda frase que afirma a marcação passa pela mesma prova (`_marcacao_da_shopee`), checada por um teste que cruza todas as combinações de campos; teste de envio "pingado" prova o prazo total. |
+| 42 | Mesma área | **RESSALVAS**, nenhum problema novo. Riscos: suíte e teste pingado não executados pelo auditor (sem Python no ambiente dele); falta o link de produto real da conta. |
 
 ## Validação real na Shopee (19/10/2026)
 
