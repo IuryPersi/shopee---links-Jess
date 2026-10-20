@@ -14,11 +14,13 @@ import sys
 import threading
 import time
 from datetime import datetime
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from .config import RAIZ, ler_env
+from .links import (ESTADOS_EXAME, ICONES, MAX_LINKS_COLADOS, endereco_seguro, links_do_texto, nivel_do_exame,
+                    texto_do_exame)
 from .texto import milhar, reais
 
 PORTA = 8031
@@ -30,8 +32,10 @@ COMANDOS = {
     "resumo": ("Tamanho do histórico", ["resumo"]),
 }
 
-_estado = {"rodando": None, "inicio": None, "saida": "", "codigo": None, "ultimo": None}
+_estado = {"rodando": None, "inicio": None, "saida": "", "codigo": None, "ultimo": None,
+           "qtd_links": 0, "aviso_conferir": ""}
 _trava = threading.Lock()
+LIMITE_CORPO = 64_000  # bytes do formulario do "Conferir links" (o campo aceita ate 12.000 caracteres)
 
 
 def reservar(nome: str) -> bool:
@@ -44,8 +48,10 @@ def reservar(nome: str) -> bool:
         return True
 
 
-def _executar(nome: str):
-    _, args = COMANDOS[nome]
+def _executar(nome: str, args: list[str] | None = None):
+    """Roda `python -m robo <args>` (lista, sem shell) e guarda a saida para a tela."""
+    if args is None:
+        _, args = COMANDOS[nome]
     try:
         proc = subprocess.Popen([sys.executable, "-m", "robo", *args], cwd=str(RAIZ),
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -114,6 +120,22 @@ details.extra{margin-top:30px;color:var(--fraco)}
 details.extra summary{cursor:pointer}
 details.extra button{background:transparent;color:var(--texto);border:1px solid var(--linha);border-radius:10px;padding:8px 12px;font:inherit;cursor:pointer;margin:8px 8px 0 0}
 pre{background:#000;border:1px solid var(--linha);border-radius:12px;padding:12px;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;font-size:12px}
+details.conferir{background:var(--papel);border:1px solid var(--linha);border-radius:18px;padding:14px 16px;margin:16px 0 0}
+details.conferir summary{cursor:pointer;font-weight:900;font-size:17px}
+.dica{color:var(--fraco);font-size:13px;margin:8px 0 10px}
+.dica a{color:var(--texto)}
+.form-conferir{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.form-conferir textarea{width:100%;background:#000;color:var(--texto);border:1px solid var(--linha);border-radius:12px;
+padding:10px;font:13px/1.45 ui-monospace,Consolas,monospace;resize:vertical}
+.res{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.res li{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;background:var(--papel2);
+border:1px solid var(--linha);border-radius:12px;padding:10px 12px}
+.res .ic{font-size:20px;font-weight:900;text-align:center}
+.res .r-ok .ic{color:var(--ok)}.res .r-aviso .ic{color:var(--aviso)}.res .r-erro .ic{color:var(--brasa)}
+.res .txt p{margin:0}
+.res .lk{color:var(--fraco);font-size:12px;word-break:break-all}
+.res .mini{min-width:150px}
+@media (max-width:600px){.res li{grid-template-columns:24px 1fr}.res .mini{grid-column:2}}
 code{background:#000;padding:1px 6px;border-radius:5px}
 """
 
@@ -149,6 +171,60 @@ def _ler_achados(modo: str) -> dict | None:
         return json.loads(arq.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
+
+
+def _ler_conferencia() -> dict | None:
+    """O resultado do ultimo "Conferir links" (gravado por `python -m robo conferir`)."""
+    import json
+    try:
+        dados = json.loads((SAIDA / "conferencia.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return dados if isinstance(dados, dict) and isinstance(dados.get("resultados"), list) else None
+
+
+_CLASSE_EXAME = {"ok": "r-ok", "aviso": "r-aviso", "erro": "r-erro", "espera": "r-aviso"}
+
+
+def _secao_conferir(est: dict) -> str:
+    """Caixa "Conferir links": cola links gerados a mao no painel de afiliados e ve para onde levam.
+    Tudo o que vem do arquivo e escapado; "Abrir" so existe para link https da Shopee."""
+    e = html.escape
+    rodando = est["rodando"]
+    conf = _ler_conferencia()
+    linhas, colados = [], []
+    for r in (conf or {}).get("resultados", [])[:MAX_LINKS_COLADOS]:
+        if not isinstance(r, dict) or r.get("estado") not in ESTADOS_EXAME:
+            continue
+        link = str(r.get("link") or "")
+        colados.append(link)
+        abrir = (f'<a href="{e(link)}" target="_blank" rel="noopener noreferrer">Abrir</a>'
+                 if endereco_seguro(link) else "")
+        nivel = nivel_do_exame(r)
+        linhas.append(f"""<li class="{_CLASSE_EXAME[nivel]}"><span class="ic">{ICONES[nivel]}</span>
+<div class="txt"><p>{e(texto_do_exame(r))}</p><p class="lk">{e(link)}</p></div>
+<div class="mini"><button type="button" data-copiar="{e(link)}">Copiar</button>{abrir}</div></li>""")
+    quando = ""
+    if conf and conf.get("quando"):
+        try:
+            quando = datetime.fromisoformat(str(conf["quando"])).strftime(" · conferido %d/%m às %H:%M")
+        except ValueError:
+            quando = ""
+    resultado = (f'<ul class="res">{"".join(linhas)}</ul>' if linhas else "")
+    aviso = f'<p class="aviso-card">{e(est["aviso_conferir"])}</p>' if est.get("aviso_conferir") else ""
+    andando = (f'<div class="rodando">Conferindo {est["qtd_links"]} link(s) na Shopee… '
+               f'{int(time.time() - est["inicio"])}s</div>') if rodando == "conferir" else ""
+    trava = " disabled" if rodando else ""
+    aberto = " open" if (linhas or aviso or andando or not ler_env().get("SHOPEE_APP_ID")) else ""
+    return f"""<details class="conferir" id="conferir"{aberto}><summary>Conferir links{e(quando)}</summary>
+<p class="dica">Gere os links no <a href="https://affiliate.shopee.com.br/" target="_blank" rel="noopener noreferrer">painel
+de afiliados</a> (<b>Link personalizado</b>) e cole aqui, um por linha (até {MAX_LINKS_COLADOS}). O robô abre cada um na
+Shopee e diz para onde ele leva, se é a página de um produto e se tem a marcação de afiliado.</p>
+<form method="post" action="/conferir" class="form-conferir">
+<textarea name="links" rows="4" maxlength="12000" placeholder="https://s.shopee.com.br/…">{e(chr(10).join(colados))}</textarea>
+<button class="atualizar"{trava}>Conferir links</button></form>
+{aviso}{andando}{resultado}
+</details>"""
 
 
 def _card(a: dict) -> str:
@@ -230,9 +306,11 @@ rel="noopener noreferrer" style="color:var(--texto)">formulário da Shopee</a> e
 <code>SHOPEE_SECRET=</code> a senha. Salve.</li>
 <li>Aqui embaixo, em <b>Mais opções</b>, clique em <b>Testar conexão com a Shopee</b>.</li></ol></div>"""
     status = (f'<div class="rodando">Buscando ofertas… {int(time.time() - est["inicio"])}s '
-              f'(pode levar uns minutos)</div>') if rodando else ""
+              f'(pode levar uns minutos)</div>') if rodando and rodando != "conferir" else ""
     if not rodando and est["codigo"] not in (None, 0):
-        status = (f'<div class="aviso"><b>A última atualização não deu certo.</b><br>'
+        titulo = ("A conferência dos links não deu certo." if est["ultimo"] == "conferir"
+                  else "A última atualização não deu certo.")
+        status = (f'<div class="aviso"><b>{titulo}</b><br>'
                   f'{e(_motivo(est["saida"]) or "código " + str(est["codigo"]))}</div>')
     recarregar = '<meta http-equiv="refresh" content="3">' if rodando else ""
     outros = []
@@ -253,6 +331,7 @@ rel="noopener noreferrer" style="color:var(--texto)">formulário da Shopee</a> e
 <nav class="chips">{''.join(chips)}</nav>
 <main>
 {aviso}{status}
+{_secao_conferir(est)}
 {bloco1}
 {bloco2}
 <details class="extra"><summary>Mais opções e detalhes técnicos</summary>
@@ -309,9 +388,47 @@ class _Handler(BaseHTTPRequestHandler):
             return self._responder("Ainda não há vitrine. Rode primeiro.".encode("utf-8"), status=404)
         return self._responder(b"nao encontrado", "text/plain", 404)
 
+    def _ler_campo(self, campo: str) -> str | None:
+        """Um campo do formulario (x-www-form-urlencoded). None se o corpo passar do limite."""
+        try:
+            tamanho = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return None
+        if tamanho < 0 or tamanho > LIMITE_CORPO:
+            return None
+        corpo = self.rfile.read(tamanho).decode("utf-8", "replace") if tamanho else ""
+        return parse_qs(corpo, keep_blank_values=True).get(campo, [""])[0]
+
+    def _conferir(self):
+        """POST /conferir: tira os links do texto colado e roda `python -m robo conferir LINKS...`
+        no mesmo esquema dos outros botoes (um de cada vez, processo separado, sem shell)."""
+        texto = self._ler_campo("links")
+        links = links_do_texto(texto) if texto is not None else []
+        if texto is None:
+            aviso = f"O texto colado é grande demais: cole até {MAX_LINKS_COLADOS} links por vez."
+        elif not links:
+            aviso = "Não achei nenhum link no texto colado (o link começa com https://s.shopee.com.br/…)."
+        elif reservar("conferir"):
+            aviso = ""
+            with _trava:
+                _estado.update(qtd_links=len(links), aviso_conferir="")
+            threading.Thread(target=_executar, args=("conferir", ["conferir", *links]), daemon=True).start()
+            time.sleep(0.3)
+        else:
+            aviso = "Já tem outra ação rodando; espere terminar e confira de novo."
+        if aviso:
+            with _trava:
+                _estado["aviso_conferir"] = aviso
+        self.send_response(303)
+        self.send_header("Location", "/#conferir")
+        self._cabecalhos_seguranca()
+        self.end_headers()
+
     def do_POST(self):  # noqa: N802
         if not self._origem_confiavel(exigir_origem=True):
             return self._responder(b"proibido", "text/plain", 403)
+        if self.path == "/conferir":
+            return self._conferir()
         nome = self.path.rsplit("/", 1)[-1]
         if self.path.startswith("/executar/") and nome in COMANDOS:
             if reservar(nome):

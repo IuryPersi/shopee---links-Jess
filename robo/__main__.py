@@ -3,6 +3,8 @@
     python -m robo diagnostico  testa credencial, campos da API e geracao de link (2-3 chamadas)
     python -m robo demo         vitrine com produtos FICTICIOS, sem internet
     python -m robo resumo       tamanho do historico de precos
+    python -m robo conferir LINK [LINK...]   confere links gerados a mao no painel de afiliados
+                                (para onde levam, produto, marcacao de afiliado); sem API, sem .env
 """
 from __future__ import annotations
 
@@ -169,6 +171,45 @@ def cmd_demo() -> int:
     return 0
 
 
+def cmd_conferir(argv: list[str], abrir=None, pausa: float = 0.4) -> int:
+    """Confere links colados a mao. Nao usa a API nem o .env. Grava saida/conferencia.json, que a
+    tela "Conferir links" do painel mostra. Saida: 0 conferiu | 1 nenhum link no que foi colado."""
+    import json
+    from .links import ICONES, MAX_LINKS_COLADOS, examinar_link, links_do_texto, nivel_do_exame, texto_do_exame
+    texto = " ".join(argv) if argv else sys.stdin.read()
+    links = links_do_texto(texto)
+    if not links:
+        print("Nenhum link para conferir. Uso: python -m robo conferir https://s.shopee.com.br/...")
+        return 1
+    print(f"Conferindo {len(links)} link(s) na Shopee (no maximo {MAX_LINKS_COLADOS} por vez)...", flush=True)
+    resultados, seguidos = [], 0
+    for i, link in enumerate(links, 1):
+        if seguidos >= 3:  # a Shopee parou de responder: nao insiste link a link
+            r = {"link": link, "estado": "sem_resposta", "trilha": [], "destino": None, "loja": None,
+                 "item": None, "nome": None, "afiliado": None,
+                 "detalhe": "conferencia pausada: a Shopee parou de responder"}
+        else:
+            r = examinar_link(link, abrir=abrir)
+            seguidos = seguidos + 1 if r["estado"] == "sem_resposta" else 0
+            if i < len(links):
+                time.sleep(pausa)
+        resultados.append(r)
+        print(f"[{i}] {link}\n    {ICONES[nivel_do_exame(r)]} {texto_do_exame(r)}", flush=True)
+        if r["trilha"]:
+            print("    caminho: " + " -> ".join(r["trilha"]), flush=True)
+    PASTA_SAIDA.mkdir(parents=True, exist_ok=True)
+    destino = PASTA_SAIDA / "conferencia.json"
+    temporario = destino.with_suffix(".json.tmp")
+    temporario.write_text(json.dumps({"quando": datetime.now().isoformat(timespec="seconds"),
+                                      "resultados": resultados}, ensure_ascii=False, indent=1),
+                          encoding="utf-8")
+    os.replace(temporario, destino)  # o painel nunca le um arquivo pela metade
+    certos = sum(nivel_do_exame(r) == "ok" for r in resultados)
+    print(f"Pronto: {certos} de {len(resultados)} abrem a pagina de um produto com a marcacao de afiliado. "
+          f"Detalhes na tela 'Conferir links' e em {destino}.")
+    return 0
+
+
 def cmd_resumo() -> int:
     caminho = PASTA_DADOS / "robo.db"
     if not caminho.exists():
@@ -190,6 +231,8 @@ def main(argv: list[str]) -> int:
             pass
     os.chdir(RAIZ)
     cmd = argv[0] if argv else "rodar"
+    if cmd == "conferir":
+        return cmd_conferir(argv[1:])
     comandos = {"rodar": cmd_rodar, "diagnostico": cmd_diagnostico, "demo": cmd_demo, "resumo": cmd_resumo}
     if cmd not in comandos:
         print(__doc__)

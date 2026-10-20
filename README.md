@@ -38,6 +38,29 @@ mesma atualização. Se a Shopee parar de responder à conferência (3 vezes
 seguidas), o robô para de conferir naquela atualização e os links seguintes
 vão sem o selo; o log avisa quantos ficaram assim.
 
+## Conferir links gerados à mão
+
+Serve enquanto a Open API não é liberada, ou para conferir um link antes de
+postar. Não usa a API nem o `.env`.
+
+1. No [painel de afiliados](https://affiliate.shopee.com.br/), gere o link em
+   **Link personalizado**.
+2. Na tela, abra **Conferir links**, cole os links (até 20, um por linha) e
+   clique em **Conferir links**.
+3. Para cada link, o robô abre na Shopee e mostra um destes resultados:
+   - **✓** abre a página de um produto (mostra qual) **com a marcação de
+     afiliado** (`an_…`, o ID de afiliado da conta);
+   - **⚠** abre, mas falta algo: produto **sem** a marcação de afiliado (link
+     direto do produto não rende comissão) ou página que não é de produto;
+   - **✗** não abre: link inexistente, expirado ou fora da Shopee;
+   - **…** a Shopee não respondeu agora.
+
+Clicar em **Abrir** conta um clique no relatório do painel de afiliados. É um
+jeito de confirmar que o link é da conta. Comissão e pedidos, só o painel de
+afiliados mostra.
+
+Pelo terminal: `py -3.12 -m robo conferir https://s.shopee.com.br/…`.
+
 ## Primeira vez
 
 1. No computador, abra **https://affiliate.shopee.com.br/open_api** com a conta
@@ -113,6 +136,7 @@ completo, para conferência.
 py -3.12 -m robo rodar        # atualiza com a conta (o mesmo que o botão)
 py -3.12 -m robo diagnostico  # testa a conexão
 py -3.12 -m robo demo         # demonstração com produtos fictícios
+py -3.12 -m robo conferir LINK [LINK...]  # confere links gerados à mão (sem API)
 ```
 
 Saídas em `saida/ultima/`: `achados.json`, `mensagens.txt`, `vitrine.html`,
@@ -139,7 +163,7 @@ filtros e bloqueios.
 py -3.12 -m unittest discover -s tests
 ```
 
-Os 179 testes rodam sem internet. No computador de desenvolvimento, um gancho
+Os 201 testes rodam sem internet. No computador de desenvolvimento, um gancho
 `pre-commit` roda a suíte e barra commit com teste falhando. O histórico da auditoria externa
 (Codex), a validação real na Shopee e os riscos aceitos estão em
 [`docs/AUDITORIA.md`](docs/AUDITORIA.md).
