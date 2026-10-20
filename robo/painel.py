@@ -19,8 +19,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from .config import RAIZ, ler_env
-from .links import (ESTADOS_EXAME, ICONES, MAX_LINKS_COLADOS, endereco_seguro, links_do_texto, nivel_do_exame,
-                    texto_do_exame)
+from .links import (ESTADOS_EXAME, ICONES, MAX_LINKS_COLADOS, VERSAO_CONFERENCIA, endereco_seguro, links_do_texto,
+                    nivel_do_exame, texto_do_exame)
 from .texto import milhar, reais
 
 PORTA = 8031
@@ -36,6 +36,7 @@ _estado = {"rodando": None, "inicio": None, "saida": "", "codigo": None, "ultimo
            "qtd_links": 0, "aviso_conferir": ""}
 _trava = threading.Lock()
 LIMITE_CORPO = 64_000  # bytes do formulario do "Conferir links" (o campo aceita ate 12.000 caracteres)
+PRAZO_CORPO = 10.0  # segundos para o formulario chegar INTEIRO (40a rodada: envio lento prendia a linha)
 
 
 def reservar(nome: str) -> bool:
@@ -176,13 +177,20 @@ def _ler_achados(modo: str) -> dict | None:
 
 
 def _ler_conferencia() -> dict | None:
-    """O resultado do ultimo "Conferir links" (gravado por `python -m robo conferir`)."""
+    """O resultado do ultimo "Conferir links" (gravado por `python -m robo conferir`). Arquivo de
+    outra versao volta marcado como `antigo` (40a rodada): os links sao reaproveitados para conferir
+    de novo, mas nenhum resultado dele vai para a tela."""
     import json
     try:
         dados = json.loads((SAIDA / "conferencia.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    return dados if isinstance(dados, dict) and isinstance(dados.get("resultados"), list) else None
+    if not isinstance(dados, dict) or not isinstance(dados.get("resultados"), list):
+        return None
+    if dados.get("versao") != VERSAO_CONFERENCIA:
+        links = [str(r.get("link")) for r in dados["resultados"] if isinstance(r, dict) and r.get("link")]
+        return {"antigo": True, "links": links[:MAX_LINKS_COLADOS], "resultados": []}
+    return dados
 
 
 _CLASSE_EXAME = {"ok": "r-ok", "aviso": "r-aviso", "erro": "r-erro", "espera": "r-aviso"}
@@ -213,6 +221,10 @@ def _secao_conferir(est: dict) -> str:
         except ValueError:
             quando = ""
     resultado = (f'<ul class="res">{"".join(linhas)}</ul>' if linhas else "")
+    if conf and conf.get("antigo"):
+        colados = list(conf.get("links") or [])
+        resultado = ('<p class="aviso-card">A última conferência foi feita por uma versão anterior do robô. '
+                     'Os links estão na caixa: clique em <b>Conferir links</b> para conferir de novo.</p>')
     aviso = f'<p class="aviso-card">{e(est["aviso_conferir"])}</p>' if est.get("aviso_conferir") else ""
     andando = (f'<div class="rodando">Conferindo {est["qtd_links"]} link(s) na Shopee… '
                f'{int(time.time() - est["inicio"])}s</div>') if rodando == "conferir" else ""
@@ -393,16 +405,44 @@ class _Handler(BaseHTTPRequestHandler):
             return self._responder("Ainda não há vitrine. Rode primeiro.".encode("utf-8"), status=404)
         return self._responder(b"nao encontrado", "text/plain", 404)
 
+    def _ler_corpo(self, tamanho: int) -> bytes | None:
+        """O corpo inteiro dentro de PRAZO_CORPO segundos no TOTAL (nao so por pedaco); None se
+        nao chegar a tempo ou a conexao fechar antes."""
+        fim = time.monotonic() + PRAZO_CORPO
+        partes, falta = [], tamanho
+        try:
+            while falta > 0:
+                restante = fim - time.monotonic()
+                if restante <= 0:
+                    return None
+                self.connection.settimeout(restante)
+                pedaco = self.rfile.read1(min(falta, 65536))
+                if not pedaco:
+                    return None
+                partes.append(pedaco)
+                falta -= len(pedaco)
+        except OSError:  # inclui o timeout
+            return None
+        finally:
+            try:
+                self.connection.settimeout(self.timeout)
+            except OSError:
+                pass
+        return b"".join(partes)
+
     def _ler_campo(self, campo: str) -> str | None:
-        """Um campo do formulario (x-www-form-urlencoded). None se o corpo passar do limite."""
+        """Um campo do formulario (x-www-form-urlencoded). None se o corpo passar do limite ou nao
+        chegar inteiro a tempo."""
         try:
             tamanho = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             return None
         if tamanho < 0 or tamanho > LIMITE_CORPO:
             return None
-        corpo = self.rfile.read(tamanho).decode("utf-8", "replace") if tamanho else ""
-        return parse_qs(corpo, keep_blank_values=True).get(campo, [""])[0]
+        corpo = self._ler_corpo(tamanho) if tamanho else b""
+        if corpo is None:
+            return None
+        return parse_qs(corpo.decode("utf-8", "replace"), keep_blank_values=True).get(campo, [""])[0]
 
     def _conferir(self):
         """POST /conferir: tira os links do texto colado e roda `python -m robo conferir LINKS...`
@@ -410,7 +450,8 @@ class _Handler(BaseHTTPRequestHandler):
         texto = self._ler_campo("links")
         links = links_do_texto(texto) if texto is not None else []
         if texto is None:
-            aviso = f"O texto colado é grande demais: cole até {MAX_LINKS_COLADOS} links por vez."
+            aviso = (f"Não consegui ler o texto colado (grande demais ou chegou incompleto): cole até "
+                     f"{MAX_LINKS_COLADOS} links por vez e tente de novo.")
         elif not links:
             aviso = "Não achei nenhum link no texto colado (o link começa com https://s.shopee.com.br/…)."
         elif reservar("conferir"):

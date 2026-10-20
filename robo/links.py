@@ -307,6 +307,9 @@ def verificador_com_pausa(pausa: float = 0.4, prazo_total: float = 30.0, folga: 
 # produto existe, so abrindo (qualquer endereco de produto responde 200 a um robo).
 # ---------------------------------------------------------------------------------------------
 MAX_LINKS_COLADOS = 20
+# versao do saida/conferencia.json: a tela so mostra resultado da versao ATUAL (40a rodada: um
+# resultado salvo pela versao anterior, sem os campos novos, ganhava o OK)
+VERSAO_CONFERENCIA = 2
 _TAM_MAX_LINK = 600
 _PONTUACAO_FIM = ".,;:!?)]}>\"'»”’"
 _PONTUACAO_INICIO = "([{<\"'«“‘"
@@ -394,14 +397,21 @@ def examinar_link(url: str, abrir: Callable | None = None, prazo_total: float = 
             "marca_escrita": marca_colada is not None}
 
 
+def _prova_de_afiliado(r: dict) -> bool:
+    """Todas as provas EXPLICITAS do OK (40a rodada: campo ausente nunca conta a favor): a Shopee
+    redirecionou, o link colado nao trazia marcacao escrita e ela pos um ID valido an_<digitos>."""
+    afiliado = r.get("afiliado")
+    return (r.get("estado") == "produto" and r.get("redirecionou") is True and r.get("marca_escrita") is False
+            and isinstance(afiliado, str) and bool(_ID_AFILIADO.fullmatch(afiliado)))
+
+
 def nivel_do_exame(r: dict) -> str:
-    """ok = a Shopee levou o link ao endereco de um produto E pos a marcacao de afiliado no caminho;
-    aviso = abriu, mas falta algo (sem a marcacao da Shopee, marcacao so escrita no link colado ou
-    pagina que nao e de produto); erro = nao abre; espera = a Shopee nao respondeu.
-    Nenhum nivel afirma que o produto existe (sem a API, nao da para saber)."""
+    """ok = a Shopee levou o link ao endereco de um produto E pos a marcacao de afiliado com o ID
+    (todas as provas de _prova_de_afiliado); aviso = abriu, mas falta algo; erro = nao abre;
+    espera = a Shopee nao respondeu. Nenhum nivel afirma que o produto existe (sem a API, nao da)."""
     estado = r.get("estado")
     if estado == "produto":
-        return "ok" if r.get("afiliado") and not r.get("marca_escrita") else "aviso"
+        return "ok" if _prova_de_afiliado(r) else "aviso"
     if estado == "outra_pagina":
         return "aviso"
     return "erro" if estado == "quebrado" else "espera"
@@ -422,18 +432,22 @@ def texto_do_exame(r: dict) -> str:
         nome = f", nome no endereço: “{r.get('nome')}”" if r.get("nome") else ""
         endereco = f"endereço do produto {r.get('item')} (loja {r.get('loja')}{nome})"
         conferir = " Toque em Abrir para ver se é o produto certo e se está à venda."
-        if r.get("marca_escrita"):
-            return (f"É o {endereco} com a marcação de afiliado escrita no próprio link colado: a Shopee "
-                    "não pôs nem confirmou nada. Use o link curto gerado em Link personalizado.")
-        if r.get("afiliado") == "sim":
-            return f"A Shopee leva este link ao {endereco} e põe a marcação de afiliado (sem o ID).{conferir}"
-        if r.get("afiliado"):
+        if _prova_de_afiliado(r):  # a unica frase de sucesso: so com TODAS as provas (40a rodada)
             return (f"A Shopee leva este link ao {endereco} e põe a marcação de afiliado "
                     f"{r.get('afiliado')}.{conferir}")
+        if r.get("marca_escrita") is True:
+            return (f"É o {endereco} com a marcação de afiliado escrita no próprio link colado: a Shopee "
+                    "não pôs nem confirmou nada. Use o link curto gerado em Link personalizado.")
+        if r.get("afiliado") == "sim" and r.get("redirecionou") is True and r.get("marca_escrita") is False:
+            return (f"A Shopee leva este link ao {endereco} com utm_medium=affiliates, mas sem o ID de "
+                    "afiliado (an_…) no endereço. Confira em Abrir e no painel de afiliados.")
+        if r.get("afiliado"):
+            return f"Leva ao {endereco}, mas não deu para confirmar a marcação de afiliado. Confira este link de novo."
         return (f"Leva ao {endereco}, mas a Shopee não pôs a marcação de afiliado no caminho. Se você colou "
                 "o link direto do produto, ele não é link de afiliado: gere o link em Link personalizado.")
     if r.get("estado") == "outra_pagina":
-        marca = " A Shopee pôs a marcação de afiliado." if r.get("afiliado") else ""
+        pos = r.get("afiliado") and r.get("redirecionou") is True and r.get("marca_escrita") is False
+        marca = " A Shopee pôs a marcação de afiliado." if pos else ""
         return f"Abre na Shopee, mas não num endereço de produto (chegou em {r.get('destino')}).{marca}"
     if r.get("estado") == "quebrado":
         return f"Não abre: {_motivo_legivel(r.get('detalhe'))}."

@@ -175,7 +175,8 @@ def cmd_conferir(argv: list[str], abrir=None, pausa: float = 0.4) -> int:
     """Confere links colados a mao. Nao usa a API nem o .env. Grava saida/conferencia.json, que a
     tela "Conferir links" do painel mostra. Saida: 0 conferiu | 1 nenhum link no que foi colado."""
     import json
-    from .links import ICONES, MAX_LINKS_COLADOS, examinar_link, links_do_texto, nivel_do_exame, texto_do_exame
+    from .links import (ICONES, MAX_LINKS_COLADOS, VERSAO_CONFERENCIA, examinar_link, links_do_texto,
+                        nivel_do_exame, texto_do_exame)
     texto = " ".join(argv) if argv else sys.stdin.read()
     links = links_do_texto(texto)
     if not links:
@@ -186,7 +187,7 @@ def cmd_conferir(argv: list[str], abrir=None, pausa: float = 0.4) -> int:
     for i, link in enumerate(links, 1):
         if seguidos >= 3:  # a Shopee parou de responder: nao insiste link a link
             r = {"link": link, "estado": "sem_resposta", "trilha": [], "destino": None, "loja": None,
-                 "item": None, "nome": None, "afiliado": None,
+                 "item": None, "nome": None, "afiliado": None, "redirecionou": False, "marca_escrita": False,
                  "detalhe": "conferencia pausada: a Shopee parou de responder"}
         else:
             r = examinar_link(link, abrir=abrir)
@@ -200,7 +201,8 @@ def cmd_conferir(argv: list[str], abrir=None, pausa: float = 0.4) -> int:
     PASTA_SAIDA.mkdir(parents=True, exist_ok=True)
     destino = PASTA_SAIDA / "conferencia.json"
     temporario = destino.with_suffix(".json.tmp")
-    temporario.write_text(json.dumps({"quando": datetime.now().isoformat(timespec="seconds"),
+    temporario.write_text(json.dumps({"versao": VERSAO_CONFERENCIA,
+                                      "quando": datetime.now().isoformat(timespec="seconds"),
                                       "resultados": resultados}, ensure_ascii=False, indent=1),
                           encoding="utf-8")
     os.replace(temporario, destino)  # o painel nunca le um arquivo pela metade

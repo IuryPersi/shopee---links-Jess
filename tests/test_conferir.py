@@ -158,6 +158,24 @@ class TestExaminarLink(unittest.TestCase):
         self.assertEqual(r["estado"], "sem_resposta")
         self.assertLess(time.monotonic() - inicio, 2)
 
+    def test_ok_exige_todas_as_provas_explicitas(self):  # 40a rodada: ausencia nunca conta a favor
+        base = {"estado": "produto", "item": 1, "loja": 1, "afiliado": "an_1", "redirecionou": True,
+                "marca_escrita": False}
+        self.assertEqual(nivel_do_exame(base), "ok")
+        for falta in ({"redirecionou": None}, {"marca_escrita": None}, {"redirecionou": False},
+                      {"marca_escrita": True}, {"afiliado": "sim"}, {"afiliado": "an_1x"}, {"afiliado": 1},
+                      {"afiliado": None}):
+            r = {**base, **falta}
+            for k, v in falta.items():
+                if v is None:
+                    r.pop(k)
+            self.assertEqual(nivel_do_exame(r), "aviso", falta)
+            self.assertNotIn("põe a marcação de afiliado an_", texto_do_exame(r), falta)
+        sem_campos = {"estado": "produto", "item": 1, "loja": 1, "afiliado": "an_1"}  # registro antigo
+        self.assertIn("não deu para confirmar a marcação de afiliado", texto_do_exame(sem_campos))
+        sim = {**base, "afiliado": "sim"}
+        self.assertIn("sem o ID de afiliado", texto_do_exame(sim))
+
     def test_texto_nao_quebra_com_resultado_incompleto(self):
         for r in ({}, {"estado": "produto"}, {"estado": "outra_pagina"}, {"estado": "quebrado"}, {"estado": "x"}):
             self.assertIsInstance(texto_do_exame(r), str)
@@ -187,6 +205,8 @@ class TestComandoConferir(unittest.TestCase):
         self.assertIn("✓ A Shopee leva este link ao endereço do produto 987654", texto)
         self.assertIn("em 1 de 2", texto)
         self.assertTrue(dados["quando"])
+        from robo.links import VERSAO_CONFERENCIA
+        self.assertEqual(dados["versao"], VERSAO_CONFERENCIA)  # a tela so mostra a versao atual
 
     def test_sem_link_nao_grava_nada(self):
         codigo, texto, dados = self.rodar(["oi, sem link aqui"], abridor({}))
@@ -291,7 +311,8 @@ class TestTelaConferir(unittest.TestCase):
             {"link": "https://s.shopee.com.br/z", "estado": "INVALIDO"},
             "nem e um dicionario"]
         (Path(self.tmp.name) / "conferencia.json").write_text(
-            json.dumps({"quando": "2026-10-20T10:00:00", "resultados": resultados}), encoding="utf-8")
+            json.dumps({"versao": self.P.VERSAO_CONFERENCIA, "quando": "2026-10-20T10:00:00",
+                        "resultados": resultados}), encoding="utf-8")
         pagina = self.P._pagina("demo")
         self.assertIn('id="conferir"', pagina)
         self.assertNotIn("<script>alert(1)", pagina)
@@ -301,8 +322,38 @@ class TestTelaConferir(unittest.TestCase):
         self.assertNotIn("https://s.shopee.com.br/z", pagina)  # estado invalido nao aparece
         self.assertIn("conferido 20/10 às 10:00", pagina)
 
+    def test_resultado_de_versao_anterior_nao_aparece_na_tela(self):  # 40a rodada: o caminho do Codex
+        inventado = "https://shopee.com.br/Produto-Inventado-i.1.1?utm_medium=affiliates&utm_source=an_1"
+        antigo = {"quando": "2026-10-20T09:00:00", "resultados": [  # gravado pela versao de 0ef2304
+            {"link": inventado, "estado": "produto", "item": 1, "loja": 1, "nome": "Produto Inventado",
+             "afiliado": "an_1", "trilha": ["200 shopee.com.br/Produto-Inventado-i.1.1"], "detalhe": ""}]}
+        (Path(self.tmp.name) / "conferencia.json").write_text(json.dumps(antigo), encoding="utf-8")
+        pagina = self.P._pagina("demo")
+        self.assertNotIn('<span class="ic">✓</span>', pagina)
+        self.assertNotIn("põe a marcação de afiliado an_1", pagina)
+        self.assertIn("versão anterior do robô", pagina)
+        self.assertIn("Produto-Inventado-i.1.1?utm_medium=affiliates&amp;utm_source=an_1</textarea>", pagina)
+
     def test_conexao_que_nao_manda_o_corpo_nao_prende_para_sempre(self):  # 39a rodada (risco)
         self.assertTrue(0 < self.P._Handler.timeout <= 30)
+
+    def test_envio_lento_tem_prazo_total(self):  # 40a rodada (risco)
+        import socket
+        antes, self.P.PRAZO_CORPO = self.P.PRAZO_CORPO, 0.4
+        try:
+            s = socket.create_connection(("127.0.0.1", self.porta), timeout=5)
+            s.sendall((f"POST /conferir HTTP/1.1\r\nHost: 127.0.0.1:{self.porta}\r\n"
+                       f"Origin: http://127.0.0.1:{self.porta}\r\nContent-Type: application/x-www-form-urlencoded\r\n"
+                       f"Content-Length: 1000\r\n\r\nlinks=https").encode())
+            inicio = time.monotonic()
+            resposta = s.recv(200)  # o resto do corpo nunca chega
+            s.close()
+        finally:
+            self.P.PRAZO_CORPO = antes
+        self.assertLess(time.monotonic() - inicio, 3)
+        self.assertIn(b"303", resposta)
+        self.assertIn("chegou incompleto", self.P._estado["aviso_conferir"])
+        self.assertEqual(self.chamadas, [])
 
     def test_pagina_abre_a_caixa_quando_volta_da_conferencia(self):
         self.assertIn("get('aba')==='conferir'", self.P.JS)

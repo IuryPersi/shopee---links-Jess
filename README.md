@@ -167,7 +167,7 @@ filtros e bloqueios.
 py -3.12 -m unittest discover -s tests
 ```
 
-Os 206 testes rodam sem internet. No computador de desenvolvimento, um gancho
+Os 209 testes rodam sem internet. No computador de desenvolvimento, um gancho
 `pre-commit` roda a suíte e barra commit com teste falhando. O histórico da auditoria externa
 (Codex), a validação real na Shopee e os riscos aceitos estão em
 [`docs/AUDITORIA.md`](docs/AUDITORIA.md).

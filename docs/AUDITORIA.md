@@ -28,6 +28,8 @@ Auditor: Codex CLI (OpenAI), em modo somente leitura, adversarial. Mais 4 analis
 | 36 | Mesma área | **REPROVADO** (2): `Location: ///product/...` o Python juntava no host atual e o navegador lê o host `product` (selo falso); volta atrás do agendador dizia "nada mudou" mesmo quando a remoção compensatória falhava. Corrigido: só duas formas aceitas, as que os dois leem igual (absoluta limpa `https://host[:443]/...` e caminho com uma barra no começo), sem `.`/`..` (nem `%2e`) no caminho; cada passo da volta atrás é conferido e a mensagem diz o que ficou. |
 | 37 | Mesma área | **RESSALVAS**, nenhum problema novo. Riscos: suíte não executada pelo auditor, compatibilidade real com a Shopee, linha presa. |
 | 38 | Mesma área, com o ensaio real abaixo | **RESSALVAS**, nenhum problema novo: "o ensaio relatado reduz o risco de incompatibilidade". Falta só o link de produto da conta da afiliada. |
+| 39 | "Conferir links" (novo, 20/10): links gerados à mão no painel de afiliados | **REPROVADO** (1): endereço de produto inventado com `utm_medium=affiliates&utm_source=an_1` escrito à mão ganhava ✓ e "Abre [nome]". Corrigido: só conta a marcação que a **Shopee** põe depois de redirecionar (marcação escrita no link colado = aviso); textos dizem "endereço do produto" e "nome no endereço", nunca existência nem comissão; prazo por conexão no painel. |
+| 40 | Mesma área | **REPROVADO** (1): resultado salvo pela versão anterior (sem os campos novos) ainda ganhava ✓ na tela. Corrigido: `conferencia.json` tem versão e a tela só mostra a atual; o ✓ exige TODAS as provas explícitas (redirecionou, sem marcação escrita, ID `an_<dígitos>` válido); prazo TOTAL para o formulário chegar. |
 
 ## Validação real na Shopee (19/10/2026)
 
@@ -66,7 +68,7 @@ isolados.
 - **Fase 1 não publica nada sozinha:** a dona do perfil revisa cada card antes de
   copiar a mensagem.
 - **Suíte não executada pelo auditor:** o sandbox dele não tem Python. A suíte
-  (179 testes) roda localmente antes de cada commit, travada pelo gancho
+  (209 testes) roda localmente antes de cada commit, travada pelo gancho
   `pre-commit`.
 - **Selo dos links ≠ produto existe:** para um robô, qualquer página de produto
   da Shopee responde 200 (é um app de página única), até a de produto que não
