@@ -19,12 +19,14 @@ class TestPainel(unittest.TestCase):
     def setUpClass(cls):
         cls.srv = ThreadingHTTPServer(("127.0.0.1", 0), P._Handler)
         cls.porta = cls.srv.server_address[1]
-        P.PORTA = cls.porta  # o handler confere Host/Origin contra a porta real
+        cls.porta_antes, P.PORTA = P.PORTA, cls.porta  # o handler confere Host/Origin contra a porta real
         threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
 
     @classmethod
     def tearDownClass(cls):
         cls.srv.shutdown()
+        cls.srv.server_close()
+        P.PORTA = cls.porta_antes  # 43a rodada: nao deixa a porta do teste para os outros
 
     def pedir(self, metodo, caminho, headers=None):
         c = http.client.HTTPConnection("127.0.0.1", self.porta, timeout=5)

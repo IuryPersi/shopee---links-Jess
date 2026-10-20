@@ -305,10 +305,17 @@ class TestTelaConferir(unittest.TestCase):
         h = {"Origin": f"http://127.0.0.1:{self.porta}", "Content-Type": "application/x-www-form-urlencoded"}
         h.update(headers or {})
         c.request("POST", "/conferir", body=corpo.encode("utf-8"), headers=h)
-        r = c.getresponse()
-        r.read()
+        try:
+            r = c.getresponse()
+            r.read()
+            status, destino = r.status, r.getheader("Location")
+        except (ConnectionAbortedError, ConnectionResetError):
+            # pedido malformado DE PROPOSITO (corpo maior que o limite): o painel responde e fecha sem
+            # ler o resto, e no Windows o cliente as vezes ve a conexao anulada antes de ler (20/10).
+            # O que importa e conferido no estado do painel.
+            status, destino = None, None
         time.sleep(0.4)  # a linha que chama _executar
-        return r.status, r.getheader("Location")
+        return status, destino
 
     def test_links_colados_viram_o_comando_sem_shell(self):
         status, destino = self.post("links=" + quote(f"oi {CURTO}\n s.shopee.com.br/XyZ, tchau"))
@@ -369,22 +376,44 @@ class TestTelaConferir(unittest.TestCase):
     def test_conexao_que_nao_manda_o_corpo_nao_prende_para_sempre(self):  # 39a rodada (risco)
         self.assertTrue(0 < self.P._Handler.timeout <= 30)
 
+    def _receber(self, s) -> bytes:
+        try:
+            return s.recv(200)
+        except (ConnectionAbortedError, ConnectionResetError, TimeoutError):
+            # o painel fechou com dados ainda chegando: no Windows o cliente as vezes ve a conexao
+            # anulada antes de ler a resposta (falha intermitente vista no gancho em 20/10)
+            return b""
+
+    def _esperar_desistencia(self, inicio: float, limite: float = 3.0) -> float | None:
+        """Segundos ate o painel desistir do corpo: o aviso no ESTADO dele, que nao depende de o
+        cliente do teste conseguir ler a resposta."""
+        while time.monotonic() - inicio < limite:
+            if "chegou incompleto" in (self.P._estado.get("aviso_conferir") or ""):
+                return time.monotonic() - inicio
+            time.sleep(0.02)
+        return None
+
+    def _post_bruto(self, s, corpo_inicial: str):
+        s.sendall((f"POST /conferir HTTP/1.1\r\nHost: 127.0.0.1:{self.porta}\r\n"
+                   f"Origin: http://127.0.0.1:{self.porta}\r\nContent-Type: application/x-www-form-urlencoded\r\n"
+                   f"Content-Length: 1000\r\n\r\n{corpo_inicial}").encode())
+
     def test_envio_lento_tem_prazo_total(self):  # 40a rodada (risco)
         import socket
         antes, self.P.PRAZO_CORPO = self.P.PRAZO_CORPO, 0.4
+        s = socket.create_connection(("127.0.0.1", self.porta), timeout=5)
         try:
-            s = socket.create_connection(("127.0.0.1", self.porta), timeout=5)
-            s.sendall((f"POST /conferir HTTP/1.1\r\nHost: 127.0.0.1:{self.porta}\r\n"
-                       f"Origin: http://127.0.0.1:{self.porta}\r\nContent-Type: application/x-www-form-urlencoded\r\n"
-                       f"Content-Length: 1000\r\n\r\nlinks=https").encode())
+            self._post_bruto(s, "links=https")  # o resto do corpo nunca chega
             inicio = time.monotonic()
-            resposta = s.recv(200)  # o resto do corpo nunca chega
-            s.close()
+            resposta = self._receber(s)
+            desistiu = self._esperar_desistencia(inicio)
         finally:
             self.P.PRAZO_CORPO = antes
-        self.assertLess(time.monotonic() - inicio, 3)
-        self.assertIn(b"303", resposta)
-        self.assertIn("chegou incompleto", self.P._estado["aviso_conferir"])
+            s.close()
+        self.assertIsNotNone(desistiu)
+        self.assertLess(desistiu, 3)
+        if resposta:
+            self.assertIn(b"303", resposta)
         self.assertEqual(self.chamadas, [])
 
     def test_envio_pingado_tambem_para_no_prazo_total(self):  # 41a rodada (risco): 1 byte a cada 0,1 s
@@ -393,9 +422,7 @@ class TestTelaConferir(unittest.TestCase):
         parar = threading.Event()
         s = socket.create_connection(("127.0.0.1", self.porta), timeout=5)
         try:
-            s.sendall((f"POST /conferir HTTP/1.1\r\nHost: 127.0.0.1:{self.porta}\r\n"
-                       f"Origin: http://127.0.0.1:{self.porta}\r\nContent-Type: application/x-www-form-urlencoded\r\n"
-                       f"Content-Length: 1000\r\n\r\nlinks=").encode())
+            self._post_bruto(s, "links=")
 
             def pingar():  # nunca fica 0,5 s parado: so o prazo TOTAL corta
                 while not parar.is_set():
@@ -406,15 +433,16 @@ class TestTelaConferir(unittest.TestCase):
                     time.sleep(0.1)
             threading.Thread(target=pingar, daemon=True).start()
             inicio = time.monotonic()
-            resposta = s.recv(200)
-            decorrido = time.monotonic() - inicio
+            resposta = self._receber(s)
+            desistiu = self._esperar_desistencia(inicio)
         finally:
             parar.set()
             self.P.PRAZO_CORPO = antes
             s.close()
-        self.assertLess(decorrido, 2.5)  # sem o prazo total, 1000 bytes pingados levariam ~100 s
-        self.assertIn(b"303", resposta)
-        self.assertIn("chegou incompleto", self.P._estado["aviso_conferir"])
+        self.assertIsNotNone(desistiu)
+        self.assertLess(desistiu, 2.5)  # sem o prazo total, 1000 bytes pingados levariam ~100 s
+        if resposta:
+            self.assertIn(b"303", resposta)
         self.assertEqual(self.chamadas, [])
 
     def test_pagina_abre_a_caixa_quando_volta_da_conferencia(self):

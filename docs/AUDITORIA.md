@@ -37,6 +37,7 @@ Auditor: Codex CLI (OpenAI), em modo somente leitura, adversarial. Mais 4 analis
 | 40 | Mesma área | **REPROVADO** (1): resultado salvo pela versão anterior (sem os campos novos) ainda ganhava ✓ na tela. Corrigido: `conferencia.json` tem versão e a tela só mostra a atual; o ✓ exige TODAS as provas explícitas (redirecionou, sem marcação escrita, ID `an_<dígitos>` válido); prazo TOTAL para o formulário chegar. |
 | 41 | Mesma área | **REPROVADO** (1): na página que não é de produto, a frase "A Shopee pôs a marcação de afiliado" aceitava `utm_medium=affiliates` sem o ID. Corrigido: toda frase que afirma a marcação passa pela mesma prova (`_marcacao_da_shopee`), checada por um teste que cruza todas as combinações de campos; teste de envio "pingado" prova o prazo total. |
 | 42 | Mesma área | **RESSALVAS**, nenhum problema novo. Riscos: suíte e teste pingado não executados pelo auditor (sem Python no ambiente dele); falta o link de produto real da conta. |
+| 43 | Abertura do painel (PAINEL.bat, 20/10) | **APROVADO**, nenhum problema novo. Navegador só abre com o painel escutando; porta exclusiva no Windows (o padrão deixava dois painéis na mesma porta); segundo clique só reabre a tela. Riscos aceitos: o "painel já aberto" é reconhecido pelo texto da página (só importa se outro programa ocupar a porta 8031 deste computador). |
 
 ## Validação real na Shopee (19/10/2026)
 
