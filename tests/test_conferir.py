@@ -83,21 +83,53 @@ class TestExaminarLink(unittest.TestCase):
         self.assertEqual((r["estado"], r["loja"], r["item"], r["afiliado"]), ("produto", 55, 987654, "an_10000000001"))
         self.assertEqual(r["nome"], "Garrafa Térmica Inox 1L")
         self.assertEqual(nivel_do_exame(r), "ok")
-        self.assertIn("com a marcação de afiliado an_10000000001", texto_do_exame(r))
+        texto = texto_do_exame(r)
+        self.assertIn("A Shopee leva este link ao endereço do produto 987654 (loja 55, nome no endereço: "
+                      "“Garrafa Térmica Inox 1L”) e põe a marcação de afiliado an_10000000001.", texto)
+        self.assertIn("Toque em Abrir para ver se é o produto certo e se está à venda.", texto)
         self.assertEqual(r["trilha"], [f"301 s.shopee.com.br/AbC123", "200 shopee.com.br/Garrafa-T%C3%A9rmica-Inox-1L-i.55.987654"])
         self.assertNotIn("utm", json.dumps(r["trilha"]))  # a trilha nao leva os parametros
 
-    def test_link_direto_do_produto_avisa_que_nao_rende_comissao(self):
+    def test_nenhum_texto_afirma_o_que_nao_foi_medido(self):  # 39a rodada
+        proibidas = ("rende comissão", "é o seu", "produto confirmado", "existe", "Abre “")
+        casos = [examinar_link(CURTO, abrir=abridor({CURTO: (301, SLUG + MARCA), SLUG + MARCA: (200, None)})),
+                 examinar_link(SLUG, abrir=abridor({SLUG: (200, None)})),
+                 examinar_link(SLUG + MARCA, abrir=abridor({SLUG + MARCA: (200, None)}))]
+        for r in casos:
+            texto = texto_do_exame(r)
+            for proibida in proibidas:
+                self.assertNotIn(proibida, texto.replace("se é o produto certo", ""), texto)
+
+    def test_marcacao_escrita_no_link_colado_nao_ganha_ok(self):  # 39a rodada: o exemplo do Codex
+        inventado = "https://shopee.com.br/Produto-Inventado-i.1.1?utm_medium=affiliates&utm_source=an_1"
+        r = examinar_link(inventado, abrir=abridor({inventado: (200, None)}))
+        self.assertEqual((r["estado"], r["afiliado"], r["marca_escrita"]), ("produto", None, True))
+        self.assertEqual(nivel_do_exame(r), "aviso")
+        self.assertIn("escrita no próprio link colado: a Shopee não pôs nem confirmou nada", texto_do_exame(r))
+        self.assertIn("nome no endereço: “Produto Inventado”", texto_do_exame(r))
+        # mesmo que a Shopee redirecione mantendo os parametros escritos a mao
+        canonico = "https://shopee.com.br/Produto-Real-i.1.1?utm_medium=affiliates&utm_source=an_1"
+        r = examinar_link(inventado, abrir=abridor({inventado: (301, canonico), canonico: (200, None)}))
+        self.assertEqual((r["afiliado"], nivel_do_exame(r)), (None, "aviso"))
+
+    def test_marcacao_so_conta_depois_de_um_redirecionamento_da_shopee(self):
+        r = examinar_link(SLUG, abrir=abridor({SLUG: (200, None)}))
+        self.assertFalse(r["redirecionou"])
+        r = examinar_link(CURTO, abrir=abridor({CURTO: (301, SLUG + MARCA), SLUG + MARCA: (200, None)}))
+        self.assertTrue(r["redirecionou"])
+
+    def test_link_direto_do_produto_avisa_que_nao_e_de_afiliado(self):
         r = examinar_link(SLUG, abrir=abridor({SLUG: (200, None)}))
         self.assertEqual((r["estado"], r["afiliado"], nivel_do_exame(r)), ("produto", None, "aviso"))
-        self.assertIn("não achei a marcação de afiliado", texto_do_exame(r))
+        self.assertIn("a Shopee não pôs a marcação de afiliado no caminho", texto_do_exame(r))
+        self.assertIn("ele não é link de afiliado", texto_do_exame(r))
 
     def test_pagina_que_nao_e_de_produto(self):
         campanha = "https://shopee.com.br/m/vem-ai-dia-de-cupons" + MARCA
         r = examinar_link(CURTO, abrir=abridor({CURTO: (301, campanha), campanha: (200, None)}))
         self.assertEqual((r["estado"], nivel_do_exame(r)), ("outra_pagina", "aviso"))
-        self.assertIn("não numa página de produto", texto_do_exame(r))
-        self.assertIn("Tem a marcação de afiliado", texto_do_exame(r))
+        self.assertIn("não num endereço de produto", texto_do_exame(r))
+        self.assertIn("A Shopee pôs a marcação de afiliado", texto_do_exame(r))
         self.assertIsNone(r["item"])
 
     def test_link_inexistente_e_rede_e_fora_da_shopee(self):
@@ -152,8 +184,8 @@ class TestComandoConferir(unittest.TestCase):
         codigo, texto, dados = self.rodar([f"veja {CURTO} e https://golpe.exemplo/x"], r)
         self.assertEqual(codigo, 0)
         self.assertEqual([x["estado"] for x in dados["resultados"]], ["produto", "quebrado"])
-        self.assertIn("✓ Abre “Garrafa Térmica Inox 1L”", texto)
-        self.assertIn("1 de 2", texto)
+        self.assertIn("✓ A Shopee leva este link ao endereço do produto 987654", texto)
+        self.assertIn("em 1 de 2", texto)
         self.assertTrue(dados["quando"])
 
     def test_sem_link_nao_grava_nada(self):
@@ -228,7 +260,8 @@ class TestTelaConferir(unittest.TestCase):
 
     def test_links_colados_viram_o_comando_sem_shell(self):
         status, destino = self.post("links=" + quote(f"oi {CURTO}\n s.shopee.com.br/XyZ, tchau"))
-        self.assertEqual((status, destino), (303, "/#conferir"))
+        # sem '#': com '#conferir' a recarga automatica nao recarregava (teste da tela, 20/10)
+        self.assertEqual((status, destino), (303, "/?aba=conferir"))
         self.assertEqual(self.chamadas, [("conferir", ["conferir", CURTO, "https://s.shopee.com.br/XyZ"])])
 
     def test_post_de_outro_site_e_recusado(self):  # CSRF, como nos outros botoes
@@ -267,6 +300,17 @@ class TestTelaConferir(unittest.TestCase):
         self.assertIn(f'href="{CURTO}"', pagina)
         self.assertNotIn("https://s.shopee.com.br/z", pagina)  # estado invalido nao aparece
         self.assertIn("conferido 20/10 às 10:00", pagina)
+
+    def test_conexao_que_nao_manda_o_corpo_nao_prende_para_sempre(self):  # 39a rodada (risco)
+        self.assertTrue(0 < self.P._Handler.timeout <= 30)
+
+    def test_pagina_abre_a_caixa_quando_volta_da_conferencia(self):
+        self.assertIn("get('aba')==='conferir'", self.P.JS)
+        c = http.client.HTTPConnection("127.0.0.1", self.porta, timeout=5)
+        c.request("GET", "/?aba=conferir")
+        r = c.getresponse()
+        self.assertEqual(r.status, 200)
+        self.assertIn('id="conferir"', r.read().decode("utf-8"))
 
     def test_arquivo_estragado_nao_derruba_a_tela(self):
         (Path(self.tmp.name) / "conferencia.json").write_text("{nao e json", encoding="utf-8")

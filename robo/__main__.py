@@ -205,8 +205,8 @@ def cmd_conferir(argv: list[str], abrir=None, pausa: float = 0.4) -> int:
                           encoding="utf-8")
     os.replace(temporario, destino)  # o painel nunca le um arquivo pela metade
     certos = sum(nivel_do_exame(r) == "ok" for r in resultados)
-    print(f"Pronto: {certos} de {len(resultados)} abrem a pagina de um produto com a marcacao de afiliado. "
-          f"Detalhes na tela 'Conferir links' e em {destino}.")
+    print(f"Pronto: em {certos} de {len(resultados)} a Shopee leva ao endereco de um produto e poe a marcacao "
+          f"de afiliado (se o produto existe, so abrindo). Detalhes na tela 'Conferir links' e em {destino}.")
     return 0
 
 

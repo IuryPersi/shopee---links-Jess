@@ -48,16 +48,20 @@ postar. Não usa a API nem o `.env`.
 2. Na tela, abra **Conferir links**, cole os links (até 20, um por linha) e
    clique em **Conferir links**.
 3. Para cada link, o robô abre na Shopee e mostra um destes resultados:
-   - **✓** abre a página de um produto (mostra qual) **com a marcação de
-     afiliado** (`an_…`, o ID de afiliado da conta);
-   - **⚠** abre, mas falta algo: produto **sem** a marcação de afiliado (link
-     direto do produto não rende comissão) ou página que não é de produto;
+   - **✓** a Shopee leva o link ao endereço de um produto e põe a **marcação de
+     afiliado** no caminho (`an_…`, o ID de afiliado). O robô mostra o ID e o
+     nome que estão no endereço;
+   - **⚠** abre, mas falta algo. Pode ser endereço de produto **sem** a
+     marcação de afiliado (link direto do produto não é link de afiliado),
+     marcação escrita à mão no próprio link, ou página que não é de produto;
    - **✗** não abre: link inexistente, expirado ou fora da Shopee;
    - **…** a Shopee não respondeu agora.
 
-Clicar em **Abrir** conta um clique no relatório do painel de afiliados. É um
-jeito de confirmar que o link é da conta. Comissão e pedidos, só o painel de
-afiliados mostra.
+**O que a conferência não prova:** se o produto existe e está à venda. Para um
+robô, a Shopee responde a qualquer endereço de produto, até de produto que não
+existe. Toque em **Abrir** para ver. Ela também não prova a comissão: a
+marcação mostra para qual ID de afiliado o link aponta, mas cliques e pedidos
+só o relatório do painel de afiliados mostra.
 
 Pelo terminal: `py -3.12 -m robo conferir https://s.shopee.com.br/…`.
 
@@ -163,7 +167,7 @@ filtros e bloqueios.
 py -3.12 -m unittest discover -s tests
 ```
 
-Os 201 testes rodam sem internet. No computador de desenvolvimento, um gancho
+Os 206 testes rodam sem internet. No computador de desenvolvimento, um gancho
 `pre-commit` roda a suíte e barra commit com teste falhando. O histórico da auditoria externa
 (Codex), a validação real na Shopee e os riscos aceitos estão em
 [`docs/AUDITORIA.md`](docs/AUDITORIA.md).

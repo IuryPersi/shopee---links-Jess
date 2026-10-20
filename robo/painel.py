@@ -146,6 +146,8 @@ async function copiar(t){try{await navigator.clipboard.writeText(t);return true}
 document.querySelectorAll('[data-copiar]').forEach(b=>b.addEventListener('click',async()=>{
   await copiar(b.dataset.copiar);const antes=b.textContent;b.textContent='Copiado ✓';b.classList.add('feito');
   setTimeout(()=>{b.textContent=antes;b.classList.remove('feito')},1500)}));
+if(new URLSearchParams(location.search).get('aba')==='conferir'){
+  const c=document.getElementById('conferir');if(c){c.open=true;c.scrollIntoView()}}
 document.querySelectorAll('.chips button').forEach(ch=>ch.addEventListener('click',()=>{
   document.querySelectorAll('.chips button').forEach(x=>x.classList.remove('ativo'));ch.classList.add('ativo');
   const tag=ch.dataset.tag;document.querySelectorAll('.card').forEach(c=>{c.hidden=!!tag&&c.dataset.tag!==tag})}));
@@ -219,7 +221,8 @@ def _secao_conferir(est: dict) -> str:
     return f"""<details class="conferir" id="conferir"{aberto}><summary>Conferir links{e(quando)}</summary>
 <p class="dica">Gere os links no <a href="https://affiliate.shopee.com.br/" target="_blank" rel="noopener noreferrer">painel
 de afiliados</a> (<b>Link personalizado</b>) e cole aqui, um por linha (até {MAX_LINKS_COLADOS}). O robô abre cada um na
-Shopee e diz para onde ele leva, se é a página de um produto e se tem a marcação de afiliado.</p>
+Shopee e diz para onde ela leva o link (o produto e o nome que estão no endereço) e se ela põe a marcação de afiliado.
+Se o produto existe e está à venda, só abrindo para ver.</p>
 <form method="post" action="/conferir" class="form-conferir">
 <textarea name="links" rows="4" maxlength="12000" placeholder="https://s.shopee.com.br/…">{e(chr(10).join(colados))}</textarea>
 <button class="atualizar"{trava}>Conferir links</button></form>
@@ -342,6 +345,8 @@ rel="noopener noreferrer" style="color:var(--texto)">formulário da Shopee</a> e
 
 
 class _Handler(BaseHTTPRequestHandler):
+    timeout = 15  # 39a rodada: conexao que nao manda o corpo nao prende a linha para sempre
+
     def log_message(self, *_):  # silencioso no console
         pass
 
@@ -420,7 +425,9 @@ class _Handler(BaseHTTPRequestHandler):
             with _trava:
                 _estado["aviso_conferir"] = aviso
         self.send_response(303)
-        self.send_header("Location", "/#conferir")
+        # sem '#': com '#conferir' a recarga automatica virava so um pulo na pagina e o
+        # "Conferindo..." ficava parado (achado no teste da tela em 20/10)
+        self.send_header("Location", "/?aba=conferir")
         self._cabecalhos_seguranca()
         self.end_headers()
 
