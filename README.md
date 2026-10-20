@@ -7,8 +7,11 @@ link de afiliado.
 
 ## Uso do dia a dia
 
-1. Dois cliques em `PAINEL.bat`. Abre **http://127.0.0.1:8031**: a tela
-   **Achadinhos de hoje**.
+1. Dois cliques em `PAINEL.bat`. O navegador abre sozinho em
+   **http://127.0.0.1:8031**, a tela **Achadinhos de hoje**, assim que o
+   painel estiver no ar. Uma janela preta fica aberta: **é o painel**. Deixe
+   essa janela aberta enquanto usa, porque fechá-la desliga o painel. Se clicar
+   de novo com ele aberto, só abre a tela, sem erro.
 2. Clique em **Atualizar achados** e espere uns minutos.
 3. Em cada card, **Copiar mensagem** e cole no WhatsApp, story ou Telegram.
    **Link** copia só o link; **Feed** copia a versão sem link, para o feed.
@@ -167,7 +170,7 @@ filtros e bloqueios.
 py -3.12 -m unittest discover -s tests
 ```
 
-Os 212 testes rodam sem internet. No computador de desenvolvimento, um gancho
+Os 216 testes rodam sem internet. No computador de desenvolvimento, um gancho
 `pre-commit` roda a suíte e barra commit com teste falhando. O histórico da auditoria externa
 (Codex), a validação real na Shopee e os riscos aceitos estão em
 [`docs/AUDITORIA.md`](docs/AUDITORIA.md).

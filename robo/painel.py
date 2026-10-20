@@ -9,10 +9,14 @@ Uso:  py -3.12 -m robo.painel   (ou dois cliques em PAINEL.bat)
 from __future__ import annotations
 
 import html
+import socket
 import subprocess
 import sys
 import threading
 import time
+import urllib.error
+import urllib.request
+import webbrowser
 from datetime import datetime
 from urllib.parse import parse_qs, urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -488,14 +492,58 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
 
-def main():
-    servidor = ThreadingHTTPServer(("127.0.0.1", PORTA), _Handler)
-    print(f"Painel no ar: http://127.0.0.1:{PORTA}  (Ctrl+C para parar)", flush=True)
+class _Servidor(ThreadingHTTPServer):
+    """A porta e SO do painel. No Windows o padrao (SO_REUSEADDR) deixava subir DOIS paineis na mesma
+    porta (dois cliques no PAINEL.bat), e o navegador falava com qualquer um (teste de 20/10)."""
+    allow_reuse_address = False
+
+    def server_bind(self):
+        if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):  # Windows: ninguem mais escuta nesta porta
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
+
+
+def _painel_ja_aberto(url: str) -> bool | None:
+    """True = o painel ja responde neste endereco; False = a porta e de OUTRO programa;
+    None = ninguem respondeu."""
+    try:
+        with urllib.request.urlopen(url + "/", timeout=3) as r:
+            return "Achadinhos de hoje" in r.read(200_000).decode("utf-8", "replace")
+    except urllib.error.HTTPError:
+        return False
+    except OSError:
+        return None
+
+
+def main(argv: list[str] | None = None) -> int:
+    """`--abrir` (o PAINEL.bat usa) abre o navegador so DEPOIS de o painel estar escutando (antes,
+    o navegador abria primeiro e a pagina aparecia "fora do ar"). Se o painel ja estiver aberto,
+    so abre o navegador nele, sem erro."""
+    abrir = "--abrir" in (sys.argv[1:] if argv is None else argv)
+    url = f"http://127.0.0.1:{PORTA}"
+    try:
+        servidor = _Servidor(("127.0.0.1", PORTA), _Handler)
+    except OSError:
+        situacao = _painel_ja_aberto(url)
+        if situacao:
+            print(f"O painel já está aberto: {url}", flush=True)
+            if abrir:
+                webbrowser.open(url)
+            return 0
+        print(f"A porta {PORTA} está ocupada por outro programa; o painel não abriu.", flush=True)
+        return 2
+    print(f"Painel no ar: {url}  - deixe esta janela aberta enquanto usa (fechar a janela desliga o painel).",
+          flush=True)
+    if abrir:
+        webbrowser.open(url)  # o servidor ja escuta: o pedido do navegador espera na fila
     try:
         servidor.serve_forever()
     except KeyboardInterrupt:
         pass
+    finally:
+        servidor.server_close()
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

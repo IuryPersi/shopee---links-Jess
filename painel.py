@@ -9,4 +9,4 @@ os.chdir(RAIZ)
 
 from robo.painel import main  # noqa: E402
 
-main()
+raise SystemExit(main())

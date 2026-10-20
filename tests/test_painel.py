@@ -86,5 +86,80 @@ class TestPainel(unittest.TestCase):
         self.assertIsNone(P._estado["rodando"])
 
 
+class TestAbrirPainel(unittest.TestCase):
+    """PAINEL.bat (`python -m robo.painel --abrir`): navegador so com o painel no ar; segundo clique
+    so reabre o navegador; nunca dois paineis na mesma porta (20/10: no Windows o padrao deixava)."""
+
+    def setUp(self):
+        self.porta_antes = P.PORTA
+        self.abertos = []
+        self.abrir_antes = P.webbrowser.open
+        P.webbrowser.open = lambda url: self.abertos.append(url)
+
+    def tearDown(self):
+        P.PORTA = self.porta_antes
+        P.webbrowser.open = self.abrir_antes
+
+    def _no_ar(self, servidor):
+        threading.Thread(target=servidor.serve_forever, daemon=True).start()
+        self.addCleanup(servidor.server_close)
+        self.addCleanup(servidor.shutdown)
+        return servidor.server_address[1]
+
+    def test_dois_paineis_na_mesma_porta_nao_sobem(self):
+        primeiro = P._Servidor(("127.0.0.1", 0), P._Handler)
+        self.addCleanup(primeiro.server_close)
+        with self.assertRaises(OSError):
+            P._Servidor(("127.0.0.1", primeiro.server_address[1]), P._Handler)
+
+    def test_segundo_clique_so_abre_o_navegador(self):
+        P.PORTA = self._no_ar(P._Servidor(("127.0.0.1", 0), P._Handler))
+        saida = __import__("io").StringIO()
+        with __import__("contextlib").redirect_stdout(saida):
+            self.assertEqual(P.main(["--abrir"]), 0)
+        self.assertIn("já está aberto", saida.getvalue())
+        self.assertEqual(self.abertos, [f"http://127.0.0.1:{P.PORTA}"])
+
+    def test_porta_de_outro_programa_avisa_e_nao_abre(self):
+        from http.server import BaseHTTPRequestHandler
+
+        class Outro(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"outro programa")
+
+            def log_message(self, *_):
+                pass
+        P.PORTA = self._no_ar(P._Servidor(("127.0.0.1", 0), Outro))
+        saida = __import__("io").StringIO()
+        with __import__("contextlib").redirect_stdout(saida):
+            self.assertEqual(P.main(["--abrir"]), 2)
+        self.assertIn("ocupada por outro programa", saida.getvalue())
+        self.assertEqual(self.abertos, [])
+
+    def test_navegador_so_abre_com_o_painel_escutando(self):
+        import socket
+        livre = socket.socket()
+        livre.bind(("127.0.0.1", 0))
+        P.PORTA = livre.getsockname()[1]
+        livre.close()
+        escutando = []
+
+        def abrir(url):  # no momento em que o navegador abre, a porta ja aceita conexao?
+            with socket.create_connection(("127.0.0.1", P.PORTA), timeout=2):
+                escutando.append(url)
+        P.webbrowser.open = abrir
+        servir_antes = P._Servidor.serve_forever
+        P._Servidor.serve_forever = lambda self, *a, **k: None  # nao fica servindo no teste
+        try:
+            with __import__("contextlib").redirect_stdout(__import__("io").StringIO()):
+                self.assertEqual(P.main(["--abrir"]), 0)
+                self.assertEqual(P.main([]), 0)  # sem --abrir (launch.json/preview): nao abre
+        finally:
+            P._Servidor.serve_forever = servir_antes
+        self.assertEqual(escutando, [f"http://127.0.0.1:{P.PORTA}"])
+
+
 if __name__ == "__main__":
     unittest.main()
