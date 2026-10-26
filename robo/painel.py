@@ -268,8 +268,7 @@ confere o link e monta a mensagem. Mamadeira, bico, chupeta e fórmula são barr
 <input name="nome" maxlength="150" placeholder="Nome do produto (só se o link não trouxer)">
 <select name="tag">{opcoes}</select>
 <label class="dica" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="confirmo"
-value="nao-e-nbcal" style="width:auto;margin-top:3px"> <span>{e(TEXTO_CONFIRMACAO)}. Obrigatório em bebê e
-maternidade.</span></label>
+value="nao-e-nbcal" style="width:auto;margin-top:3px"> <span>{e(TEXTO_CONFIRMACAO)}. Obrigatório.</span></label>
 <button class="atualizar"{trava}>Montar postagem</button></form>
 {aviso}{andando}{f'<ul class="res">{"".join(cartoes)}</ul>' if cartoes else ""}
 </details>"""

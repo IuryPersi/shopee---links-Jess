@@ -202,7 +202,7 @@ _RAIZES_ALIMENTACAO = re.compile(  # nas tags bebe e maternidade
 _RAIZES_ALIMENTACAO_TODA_TAG = re.compile(
     r"mamadeir|chupet|chuquinh|mamil|antivazament|aprendiz|transica|trainer|treinament|papinh|sippy|"
     r"^nuk$|^lillo$|^avent$|^mam$|^kuka$|^chicco$|^tommee$|^tippee$|^pigeon$|^evenflo$|^munchkin$|"
-    r"^nuby$|^buba$|^medela$|^comtec$|^nestogeno$|^aptamil$|^enfamil$|^similac$|^milupa$|^mucilon$")
+    r"^nuby$|^buba$|^clingo$|^medela$|^comtec$|^nestogeno$|^aptamil$|^enfamil$|^similac$|^milupa$|^mucilon$")
 _ACESSORIOS_PERMITIDOS_MANUAL = re.compile(
     r"absorvente(?: ?(?:de|para|p))? ?seio[a-z]*|sutia[a-z]*(?: ?(?:de|para))? ?amamentacao|"
     r"almofada(?: ?(?:de|para))? ?amamentacao|travesseiro(?: ?(?:de|para))? ?amamentacao")

@@ -42,7 +42,10 @@ def _tags_validas(cfg: dict) -> dict:
     return {k: v for k, v in (cfg.get("tags") or {}).items() if not k.startswith("_") and isinstance(v, dict)}
 
 
-TAGS_COM_CONFIRMACAO = ("bebe", "maternidade")
+# 54a rodada: a confirmacao vale em TODA tag - um copo de transicao sem palavra de bebe no titulo
+# passava escolhendo 'cozinha'. Montar postagem e manual: a pessoa confirma cada produto.
+TAGS_COM_CONFIRMACAO = ("bebe", "maternidade", "casa", "feminino", "cozinha", "limpeza")
+CONFIRMACAO_EM_TODA_TAG = True
 TEXTO_CONFIRMACAO = ("Confirmo que o produto NÃO é mamadeira, bico, chupeta, protetor de mamilo, copo ou caneca "
                      "de transição/treinamento nem alimento ou leite infantil (NBCAL)")
 
@@ -68,7 +71,7 @@ def montar_postagem(link: str, preco_texto: str, cfg: dict, nome_digitado: str =
     nome_endereco = exame.get("nome_inteiro") or exame.get("nome") or ""  # inteiro, nunca cortado
     if link_ok and not nome_endereco and not nome_digitado:
         motivos.append("Nome: o endereço do link não traz o nome do produto; digite o nome no campo Nome.")
-    if tag in TAGS_COM_CONFIRMACAO and confirmado is not True:
+    if (CONFIRMACAO_EM_TODA_TAG or tag in TAGS_COM_CONFIRMACAO) and confirmado is not True:
         motivos.append(f"Confirmação: marque \"{TEXTO_CONFIRMACAO}\".")
     if len(nome_digitado) > _TAM_NOME_DIGITADO:  # recusa em vez de cortar: cortar esconderia o fim
         motivos.append(f"Nome: use no máximo {_TAM_NOME_DIGITADO} caracteres no nome digitado.")
@@ -166,7 +169,7 @@ def registro_confiavel(p: dict, cfg: dict) -> bool:
         # "De R$ 99,90 - 60% OFF" escrito a mao no arquivo nao passa
         if not nome or nome == "Produto" or nome_curto(nome) != nome:
             return False
-        if p.get("tag") in TAGS_COM_CONFIRMACAO and p.get("confirmado_nbcal") is not True:
+        if p.get("confirmado_nbcal") is not True:  # 54a: em toda tag
             return False
         if not isinstance(p.get("afiliado"), str) or not _ID_AFILIADO.fullmatch(p["afiliado"]):
             return False

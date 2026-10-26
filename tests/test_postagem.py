@@ -219,12 +219,22 @@ class TestMontar(unittest.TestCase):
         r = montar_postagem(CURTO, "29,90", CFG, nome_digitado="Kit Mamadeira Anticólica", abrir=abridor(SEM_NOME),
                             confirmado=True)
         self.assertFalse(r["ok"])
-        # registro salvo sem a confirmacao nao aparece como pronto, mesmo assinado
-        r = montar_postagem(CURTO, "39,90", CFG, tag="casa", abrir=abridor(ALMOFADA))
+        # registro salvo sem a confirmacao nao aparece como pronto, mesmo assinado - em QUALQUER tag
+        r = montar_postagem(CURTO, "39,90", CFG, tag="casa", abrir=abridor(ALMOFADA), confirmado=True)
         self.assertTrue(r["ok"], r["motivos"])
-        r = {**r, "tag": "maternidade", "confirmado_nbcal": False}
-        r["assinatura"] = assinatura(r)
-        self.assertFalse(POSTAGEM.registro_confiavel(r, CFG))
+        for tag in ("casa", "maternidade", "cozinha"):
+            falso = {**r, "tag": tag, "confirmado_nbcal": False}
+            falso["assinatura"] = assinatura(falso)
+            self.assertFalse(POSTAGEM.registro_confiavel(falso, CFG), tag)
+
+    def test_confirmacao_em_toda_tag(self):  # 54a: o copo de transicao real sem palavra de bebe
+        for tag in ("casa", "feminino", "cozinha", "limpeza", "bebe", "maternidade"):
+            r = montar_postagem(CURTO, "29,90", CFG, nome_digitado="Copo Rosa", tag=tag, abrir=abridor(SEM_NOME))
+            self.assertFalse(r["ok"], tag)
+            self.assertTrue(any(m.startswith("Confirmação:") for m in r["motivos"]), tag)
+        r = montar_postagem(CURTO, "29,90", CFG, nome_digitado="COPO MAGICO 360 COALA - 2947 - CLINGO", tag="cozinha",
+                            abrir=abridor(SEM_NOME), confirmado=True)
+        self.assertFalse(r["ok"])  # a marca de alimentacao infantil barra mesmo confirmado
 
     def test_exemplos_da_52a(self):
         from robo.curadoria import verificar_bloqueio

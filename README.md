@@ -50,7 +50,7 @@ Para postar enquanto a Open API não é liberada:
    **Link personalizado**.
 3. Na tela, em **Montar postagem**, cole o link e o **preço que está vendo**.
    Se o endereço não trouxer o nome do produto, digite o nome também. Escolha a
-   tag (já vem em maternidade). Em **bebê** e **maternidade**, marque a caixa
+   tag (já vem em maternidade). Marque a caixa (obrigatória em toda tag)
    confirmando que o produto não é mamadeira, bico, chupeta, protetor de mamilo,
    copo/caneca de transição nem alimento ou leite infantil. Clique em **Montar
    postagem**.
@@ -200,7 +200,7 @@ filtros e bloqueios.
 py -3.12 -m unittest discover -s tests
 ```
 
-Os 253 testes rodam sem internet. No computador de desenvolvimento, um gancho
+Os 254 testes rodam sem internet. No computador de desenvolvimento, um gancho
 `pre-commit` roda a suíte e barra commit com teste falhando. O histórico da auditoria externa
 (Codex), a validação real na Shopee e os riscos aceitos estão em
 [`docs/AUDITORIA.md`](docs/AUDITORIA.md).
