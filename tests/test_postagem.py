@@ -71,6 +71,28 @@ class TestMontar(unittest.TestCase):
         self.assertFalse(r["ok"])
         self.assertTrue(any("NBCAL" in m for m in r["motivos"]))
 
+    def test_nbcal_no_fim_de_nome_longo_tambem_barra(self):  # 44a rodada: o exemplo do Codex
+        longo = ("https://shopee.com.br/Kit-Enxoval-Bebe-Completo-Presente-Maternidade-Menino-Menina-Rosa-Azul-"
+                 "Conjunto-Infantil-com-Mamadeira-i.55.111")
+        r = montar_postagem(CURTO, "29,90", CFG, abrir=abridor(longo))
+        self.assertFalse(r["ok"])
+        self.assertNotIn("mensagem", r)
+        self.assertTrue(any("NBCAL" in m for m in r["motivos"]), r["motivos"])
+        for tamanho in (50, 100, 200, 400):  # a palavra proibida sempre no FIM
+            enchimento = "-".join(["Conjunto"] * (tamanho // 9))
+            url = f"https://shopee.com.br/Kit-{enchimento}-Chupeta-i.55.111"
+            r = montar_postagem(CURTO, "29,90", CFG, abrir=abridor(url))
+            self.assertFalse(r["ok"], tamanho)
+            r = montar_postagem(CURTO, "29,90", CFG, nome_digitado=f"Kit {enchimento.replace('-', ' ')} Mamadeira",
+                                abrir=abridor(ALMOFADA))
+            self.assertFalse(r["ok"], tamanho)
+            self.assertNotIn("mensagem", r)
+
+    def test_nome_digitado_longo_demais_e_recusado_nao_cortado(self):
+        r = montar_postagem(CURTO, "29,90", CFG, nome_digitado="Almofada " * 30, abrir=abridor(SEM_NOME))
+        self.assertFalse(r["ok"])
+        self.assertTrue(any("150 caracteres" in m for m in r["motivos"]))
+
     def test_link_sem_marcacao_ou_quebrado_nao_monta(self):
         def direto(url, timeout):
             return 200, None
@@ -188,6 +210,8 @@ class TestTelaPostagem(unittest.TestCase):
         self.assertIn("Cole o link", self.P._estado["aviso_postagem"])
         self.post({"link": CURTO, "preco": ""})
         self.assertIn("Digite o preço", self.P._estado["aviso_postagem"])
+        self.post({"link": CURTO, "preco": "1", "nome": "Kit " + "a " * 100 + "Mamadeira"})  # 44a rodada
+        self.assertIn("150 caracteres", self.P._estado["aviso_postagem"])
         self.assertEqual(self.chamadas, [])
 
     def test_post_de_outro_site_e_recusado(self):

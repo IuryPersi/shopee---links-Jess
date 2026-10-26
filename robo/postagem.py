@@ -47,7 +47,7 @@ def montar_postagem(link: str, preco_texto: str, cfg: dict, nome_digitado: str =
     """Resultado SEMPRE com 'ok' e 'motivos'. So ha 'mensagem' quando ok=True."""
     exame = examinar_link(link, abrir=abrir)
     preco = ler_preco(preco_texto)
-    nome_digitado = " ".join(str(nome_digitado or "").split())[:_TAM_NOME_DIGITADO]
+    nome_digitado = " ".join(str(nome_digitado or "").split())  # INTEIRO: o bloqueio le tudo (44a rodada)
     tags = _tags_validas(cfg)
     tag = tag if tag in tags else "maternidade" if "maternidade" in tags else next(iter(tags), "")
     emoji = str(tags.get(tag, {}).get("emoji") or "🛍️")
@@ -58,9 +58,11 @@ def montar_postagem(link: str, preco_texto: str, cfg: dict, nome_digitado: str =
         motivos.append(f"Link: {texto_do_exame(exame)}")
     if preco is None:
         motivos.append("Preço: digite o preço que está na Shopee, por exemplo 29,90.")
-    nome_endereco = exame.get("nome") or ""
+    nome_endereco = exame.get("nome_inteiro") or exame.get("nome") or ""  # inteiro, nunca cortado
     if link_ok and not nome_endereco and not nome_digitado:
         motivos.append("Nome: o endereço do link não traz o nome do produto; digite o nome no campo Nome.")
+    if len(nome_digitado) > _TAM_NOME_DIGITADO:  # recusa em vez de cortar: cortar esconderia o fim
+        motivos.append(f"Nome: use no máximo {_TAM_NOME_DIGITADO} caracteres no nome digitado.")
 
     bloqueios = cfg.get("bloqueios") or {}
     combinados = cfg.get("bloqueios_combinados")

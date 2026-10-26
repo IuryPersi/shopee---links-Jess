@@ -119,16 +119,17 @@ def item_da_pagina(url: str) -> int | None:
     return produto[1] if produto else None
 
 
-def nome_da_pagina(url: str) -> str | None:
+def nome_da_pagina(url: str, limite: int | None = 90) -> str | None:
     """O nome do produto que a Shopee poe no endereco (/Nome-Do-Produto-i.<loja>.<item>), legivel.
-    So para a pessoa reconhecer o produto na conferencia: nao vai para mensagem nenhuma."""
+    `limite` corta so para EXIBIR; bloqueio (NBCAL etc.) usa limite=None, o nome inteiro (44a
+    rodada: "Kit ... com Mamadeira" passava porque a mamadeira ficava depois do corte)."""
     p = _partes(url) if _ascii_visivel(url) else None
     m = _NOME_NO_CAMINHO.fullmatch(p.path or "") if p else None
     if not m:
         return None
     nome = unquote(m.group(1), errors="replace").replace("-", " ")
     nome = " ".join("".join(ch if ch.isprintable() else " " for ch in nome).split())
-    return nome[:90] or None
+    return (nome if limite is None else nome[:limite]) or None
 
 
 def _id_esperado(item_id) -> int | None:
@@ -393,6 +394,7 @@ def examinar_link(url: str, abrir: Callable | None = None, prazo_total: float = 
             "redirecionou": len(enderecos) > 1,
             "loja": produto[0] if produto else None, "item": produto[1] if produto else None,
             "nome": nome_da_pagina(final) if produto else None,
+            "nome_inteiro": nome_da_pagina(final, limite=None) if produto else None,  # para bloqueio
             "afiliado": marca_de_afiliado(enderecos[1:]) if final and marca_colada is None else None,
             "marca_escrita": marca_colada is not None}
 

@@ -566,12 +566,14 @@ class _Handler(BaseHTTPRequestHandler):
         else:
             links = links_do_texto(campos.get("link", ""), limite=1)
             preco = " ".join(campos.get("preco", "").split())[:20]
-            nome = " ".join(campos.get("nome", "").split())[:150]
+            nome = " ".join(campos.get("nome", "").split())  # inteiro: o limite e checado, nunca cortado
             tag = campos.get("tag", "maternidade")[:40]
             if not links:
                 aviso = "Cole o link de afiliado (começa com https://s.shopee.com.br/…)."
             elif not preco:
                 aviso = "Digite o preço que está na Shopee, por exemplo 29,90."
+            elif len(nome) > 150:  # 44a rodada: cortar escondia o fim do nome do bloqueio NBCAL
+                aviso = "O nome passou de 150 caracteres: escreva um nome mais curto."
             elif reservar("postagem"):
                 args = ["postagem", "--link", links[0], "--preco", preco, "--tag", tag]
                 if nome:
