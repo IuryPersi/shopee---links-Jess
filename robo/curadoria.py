@@ -101,7 +101,7 @@ def _sem_acento(texto: str) -> str:
 def pedacos_bloqueio(nome: str, camel: bool = True) -> list[str]:
     """Os pedacos do nome para o bloqueio: separados, minusculos, sem acento, no singular.
     camel=False nao separa pela maiuscula (caixa misturada 'unPAPINHa' quebraria o termo)."""
-    t = _sem_acento(nome)
+    t = re.sub(r"[+&]", " com ", _sem_acento(nome))  # 57a: 'Escova + Mamadeira' e kit com mamadeira
     if camel:
         t = _CAMEL.sub(" ", t)
     t = re.sub(r"[^a-z0-9]+", " ", t.lower())
@@ -291,7 +291,9 @@ _ACESSORIO = re.compile(
 _ACESSORIO_LIMPEZA = re.compile(  # ate 3 palavras no meio: 'escova de limpeza para mamadeiras' (51a)
     r"(?:escova|escovinha|secador|secadora|escorredor|esterilizador|cesto)"
     # 55a rodada: 'com' NAO conta - 'escova COM mamadeira' e kit que traz a mamadeira junto
-    r"(?: (?:de|da|do|para|p|limpeza|lavar|secar|giratoria|silicone|nylon|esponja)){0,4} ?mamadeir[a-z]*"
+    # ate 4 palavras quaisquer no meio ('dupla', 'de limpeza', '2 em 1'), menos as que juntam OUTRO
+    # produto: com, mais, e, kit (57a rodada; '+' e '&' viram 'com' em pedacos_bloqueio)
+    r"(?: (?!(?:com|mais|e|kit)(?: |$))[a-z0-9]+){0,4} ?mamadeir[a-z]*"
     r"(?: ?(?:e|e de|e para) ?bi(?:co|cos|quinho|quinhos))?")
 
 
