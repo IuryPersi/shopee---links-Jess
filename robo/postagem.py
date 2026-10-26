@@ -100,12 +100,16 @@ def mensagens(emoji: str, nome: str, preco: float, link: str) -> tuple[str, str]
 def registro_confiavel(p: dict, cfg: dict) -> bool:
     """O registro salvo e um 'ok' de verdade: link seguro, ID de afiliado valido, nome que passa
     nos bloqueios HOJE, preco na faixa e mensagens identicas as remontadas."""
-    from .links import _ID_AFILIADO, endereco_seguro
+    from .links import _ID_AFILIADO, endereco_seguro, pagina_de_erro
     try:
         preco, nome, link = p.get("preco"), str(p.get("nome") or ""), str(p.get("link") or "")
         if p.get("ok") is not True or not isinstance(preco, (int, float)) or isinstance(preco, bool):
             return False
-        if not (0.5 <= preco <= 100_000) or not endereco_seguro(link) or not nome or nome == "Produto":
+        if not (0.5 <= preco <= 100_000) or not endereco_seguro(link) or pagina_de_erro(link):
+            return False
+        # 47a rodada (risco): o nome tem de ser exatamente o que o limpador produz - um nome com
+        # "De R$ 99,90 - 60% OFF" escrito a mao no arquivo nao passa
+        if not nome or nome == "Produto" or nome_curto(nome) != nome:
             return False
         if not isinstance(p.get("afiliado"), str) or not _ID_AFILIADO.fullmatch(p["afiliado"]):
             return False

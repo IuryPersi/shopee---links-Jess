@@ -125,6 +125,26 @@ class TestMontar(unittest.TestCase):
                      "Copo Térmico Infantil", "Kit Pinhas Natal"):
             self.assertIsNone(verificar_bloqueio(nome, b, comb), nome)
 
+    def test_exemplos_da_47a(self):
+        from robo.curadoria import verificar_bloqueio
+        b, comb = CFG["bloqueios"], CFG.get("bloqueios_combinados")
+        for nome in ("Chupetinha silicone bebe", "Kit bicoslatex infantil", "Mamadeirinha Anticólica", "KitChupetas",
+                     "Chuquinhas Bebe", "Bico Ortodontico Bebe", "bicodesilicone infantil", "Bicos de Silicone Bebe",
+                     "Papinhas Organicas"):
+            self.assertIsNotNone(verificar_bloqueio(nome, b, comb), nome)
+        for nome in ("Saco de Confeitar com Bico de Silicone", "Kit Bicos de Confeitar Inox", "Bico de Confeitaria"):
+            self.assertIsNone(verificar_bloqueio(nome, b, comb), nome)
+        r = montar_postagem(CURTO, "29,90", CFG, abrir=abridor("https://shopee.com.br/Chupetinha-silicone-bebe-i.55.111"))
+        self.assertFalse(r["ok"])
+
+    def test_propriedade_diminutivo_e_aumentativo(self):
+        from robo.curadoria import verificar_bloqueio
+        b, comb = CFG["bloqueios"], CFG.get("bloqueios_combinados")
+        for raiz_ in ("mamadeir", "chupet", "chuquinh", "papinh"):
+            for fim in ("a", "as", "inha", "inhas", "ao", "oes", "ona", "zinha"):
+                for forma in (f"Kit {raiz_}{fim} Bebe", f"kit{raiz_}{fim}", f"{raiz_.upper()}{fim.upper()}3un"):
+                    self.assertIsNotNone(verificar_bloqueio(forma, b, comb), forma)
+
     def test_propriedade_todo_termo_nbcal_do_config_em_qualquer_grafia(self):
         import random
         from robo.curadoria import verificar_bloqueio
@@ -320,6 +340,11 @@ class TestTelaPostagem(unittest.TestCase):
                        {**bom, "nome": "Kit Mamadeira", "mensagem": "x"},               # NBCAL
                        {**bom, "afiliado": None}, {**bom, "link": "javascript:alert(1)"},
                        {**bom, "preco": 0}, {**bom, "preco": True},
+                       # 47a rodada: adulteracao CONSISTENTE (mensagens remontadas com os campos falsos)
+                       {**bom, "nome": "De R$ 99,90 - 60% OFF Frete Gratis",
+                        "mensagem": __import__("robo.postagem", fromlist=["x"]).mensagens(
+                            bom["emoji"], "De R$ 99,90 - 60% OFF Frete Gratis", bom["preco"], bom["link"])[0]},
+                       {**bom, "link": "https://shope.ee/error_page", "afiliado": "an_123"},
                        {"ok": True, "nome": "<script>x</script>", "mensagem": "<b>oi</b>", "link": CURTO}]
         for adulterado in adulterados:
             self._gravar([adulterado])

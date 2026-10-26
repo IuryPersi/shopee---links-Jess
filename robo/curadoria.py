@@ -144,19 +144,43 @@ def _tem_termo(pedacos: list[str], frase: str) -> bool:
     return bool(padrao) and bool(padrao.search(" ".join(pedacos)))
 
 
-def _tem_combinado(pedacos: list[str], palavra: str, contexto: list[str]) -> bool:
-    """'bico' + contexto: os dois como pedacos inteiros, ou grudados num pedaco so
-    ('bicosilicone', 'bicodemamadeira'). 'bicolor' nao e 'bico'."""
+def _tem_combinado(pedacos: list[str], palavra: str, contexto: list[str], exceto: list[str] | None = None) -> bool:
+    """'bico' + contexto: os dois como pedacos inteiros, ou grudados num pedaco so ('bicosilicone',
+    'bicoslatex', 'bicodemamadeira', 'bicosiliconeinfantil'). 'bicolor' nao e 'bico'. `exceto`
+    (ex.: confeitar, bolo) tira o produto do combinado: 'saco de confeitar com bico de silicone'
+    e utensilio de cozinha (47a rodada)."""
+    if any(_tem_termo(pedacos, x) for x in exceto or []):
+        return False
     p = raiz(palavra)
-    ctx = [raiz(c) for c in contexto]
-    if p in pedacos and any(_tem_termo(pedacos, c) for c in contexto):
+    ctx = [raiz(c).replace(" ", "") for c in contexto]
+    tem_ctx = any(_tem_termo(pedacos, c) for c in contexto)
+    if p in pedacos and tem_ctx:
         return True
     for pedaco in pedacos:
-        if pedaco.startswith(p):
-            resto = re.sub(rf"^{_LIGACAO}", "", pedaco[len(p):])
-            if any(resto and _singular(resto) == c.replace(" ", "") for c in ctx):
+        if pedaco.startswith(p) and pedaco != p:
+            resto = re.sub(rf"^(?:es|s)?{_LIGACAO}", "", pedaco[len(p):])  # plural grudado: 'bicoslatex'
+            if resto and any(resto.startswith(c) for c in ctx):
+                return True
+            if resto in ("", "s", "es") and tem_ctx:  # 'bicos' + contexto em outro pedaco
                 return True
     return False
+
+
+def _radicais(bloqueios: dict) -> list[str]:
+    """Radical de cada termo de UMA palavra com 7+ letras ('mamadeira' -> 'mamadeir', 'chupeta' ->
+    'chupet', 'papinha' -> 'papinh'): barra diminutivo, aumentativo, plural e grudado ('Chupetinha',
+    'mamadeirinhas', 'kitchupetas') - 47a rodada. Termo curto ('chuca') fica so como palavra."""
+    vistos = []
+    for grupo, lista in bloqueios.items():
+        if grupo.startswith("_"):
+            continue
+        for termo in lista:
+            palavras = raiz(termo).split()
+            if len(palavras) == 1 and len(palavras[0]) >= 7:
+                radical = re.sub(r"[aeiou]+$", "", palavras[0])
+                if len(radical) >= 5:
+                    vistos.append((grupo, radical))
+    return vistos
 
 
 def verificar_bloqueio(nome: str, bloqueios: dict, combinados: dict | None = None) -> str | None:
@@ -168,11 +192,15 @@ def verificar_bloqueio(nome: str, bloqueios: dict, combinados: dict | None = Non
             continue
         if any(_tem_termo(pedacos, p) for pedacos in leituras for p in lista):
             return NOMES_BLOQUEIO.get(grupo, f"bloqueado: {grupo}")
+    for grupo, radical in _radicais(bloqueios):  # radical dentro de qualquer pedaco
+        if any(radical in pedaco for pedacos in leituras for pedaco in pedacos):
+            return NOMES_BLOQUEIO.get(grupo, f"bloqueado: {grupo}")
     for grupo, regras in (combinados or {}).items():
         if grupo.startswith("_"):
             continue
         for regra in regras:
-            if any(_tem_combinado(pedacos, regra["palavra"], regra["com"]) for pedacos in leituras):
+            if any(_tem_combinado(pedacos, regra["palavra"], regra["com"], regra.get("exceto"))
+                   for pedacos in leituras):
                 return NOMES_BLOQUEIO.get(grupo, f"bloqueado: {grupo}")
     return None
 
