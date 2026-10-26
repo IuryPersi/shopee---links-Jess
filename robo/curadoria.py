@@ -291,10 +291,12 @@ _ACESSORIO = re.compile(
 _ACESSORIO_LIMPEZA = re.compile(  # ate 3 palavras no meio: 'escova de limpeza para mamadeiras' (51a)
     r"(?:escova|escovinha|secador|secadora|escorredor|esterilizador|cesto)"
     # 55a rodada: 'com' NAO conta - 'escova COM mamadeira' e kit que traz a mamadeira junto
-    # ate 4 palavras quaisquer no meio ('dupla', 'de limpeza', '2 em 1'), menos as que juntam OUTRO
-    # produto: com, mais, e, kit (57a rodada; '+' e '&' viram 'com' em pedacos_bloqueio)
-    r"(?: (?!(?:com|mais|e|kit)(?: |$))[a-z0-9]+){0,4} ?mamadeir[a-z]*"
-    r"(?: ?(?:e|e de|e para) ?bi(?:co|cos|quinho|quinhos))?")
+    # ate 4 palavras do meio, de uma lista FECHADA de descricao de escova (58a rodada: 'qualquer
+    # palavra' deixava passar 'Kit Escova Chupeta Mamadeira'); '+' e '&' viram 'com' em pedacos_bloqueio
+    r"(?: (?:de|da|do|para|p|limpeza|limpar|lavar|secar|higienizar|giratoria|rotativa|dupla|duplo|"
+    r"macia|grande|pequena|longa|cabo|silicone|nylon|esponja|bambu|madeira|plastico|eletrica|"
+    r"360|2|3|em|1|azul|rosa|verde|branca|cinza|amarela|lilas|bebe|infantil)){0,4} ?mamadeir[a-z]*"
+    r"(?: ?(?:e|e de|e para|com) ?bi(?:co|cos|quinho|quinhos))?")
 
 
 def _sem_acessorio(pedacos: list[str]) -> list[str]:
