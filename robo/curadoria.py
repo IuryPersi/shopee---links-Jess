@@ -290,8 +290,9 @@ _ACESSORIO = re.compile(
 # Mamadeira e Bico' e escova). Porta/suporte nao entram aqui: 'porta mamadeira com bico' segue barrado.
 _ACESSORIO_LIMPEZA = re.compile(  # ate 3 palavras no meio: 'escova de limpeza para mamadeiras' (51a)
     r"(?:escova|escovinha|secador|secadora|escorredor|esterilizador|cesto)"
-    r"(?: (?:de|da|do|para|p|limpeza|lavar|secar|giratoria|silicone|nylon|esponja|com|e)){0,4} ?mamadeir[a-z]*"
-    r"(?: ?(?:e|e de|e para|com) ?bi(?:co|cos|quinho|quinhos))?")
+    # 55a rodada: 'com' NAO conta - 'escova COM mamadeira' e kit que traz a mamadeira junto
+    r"(?: (?:de|da|do|para|p|limpeza|lavar|secar|giratoria|silicone|nylon|esponja)){0,4} (?:de|da|do|para|p) ?mamadeir[a-z]*"
+    r"(?: ?(?:e|e de|e para) ?bi(?:co|cos|quinho|quinhos))?")
 
 
 def _sem_acessorio(pedacos: list[str]) -> list[str]:

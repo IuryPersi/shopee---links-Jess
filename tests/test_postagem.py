@@ -227,6 +227,15 @@ class TestMontar(unittest.TestCase):
             falso["assinatura"] = assinatura(falso)
             self.assertFalse(POSTAGEM.registro_confiavel(falso, CFG), tag)
 
+    def test_escova_com_mamadeira_e_kit_com_mamadeira(self):  # 55a (risco)
+        from robo.curadoria import verificar_bloqueio
+        b, comb = CFG["bloqueios"], CFG.get("bloqueios_combinados")
+        for nome in ("Kit Escova com Mamadeira e Bico", "Escova com Mamadeira Inclusa", "Kit Mamadeira e Escova"):
+            self.assertIsNotNone(verificar_bloqueio(nome, b, comb), nome)
+        for nome in ("Escova de Mamadeira", "Escova para Mamadeira e Bico", "Kit Escova de Limpeza para Mamadeiras e Bico",
+                     "Escova Giratória para Mamadeiras", "Secador de Mamadeira e Bico"):
+            self.assertIsNone(verificar_bloqueio(nome, b, comb), nome)
+
     def test_confirmacao_em_toda_tag(self):  # 54a: o copo de transicao real sem palavra de bebe
         for tag in ("casa", "feminino", "cozinha", "limpeza", "bebe", "maternidade"):
             r = montar_postagem(CURTO, "29,90", CFG, nome_digitado="Copo Rosa", tag=tag, abrir=abridor(SEM_NOME))
