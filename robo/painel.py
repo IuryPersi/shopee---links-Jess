@@ -565,12 +565,13 @@ class _Handler(BaseHTTPRequestHandler):
             aviso = "Não consegui ler o formulário (grande demais ou chegou incompleto). Tente de novo."
         else:
             links = links_do_texto(campos.get("link", ""), limite=1)
-            preco = " ".join(campos.get("preco", "").split())[:20]
+            preco = " ".join(campos.get("preco", "").split())  # inteiro: cortar mudava o valor (45a)
             nome = " ".join(campos.get("nome", "").split())  # inteiro: o limite e checado, nunca cortado
-            tag = campos.get("tag", "maternidade")[:40]
+            tag = campos.get("tag", "maternidade")
+            tag = tag if len(tag) <= 40 else "maternidade"
             if not links:
                 aviso = "Cole o link de afiliado (começa com https://s.shopee.com.br/…)."
-            elif not preco:
+            elif not preco or len(preco) > 20:
                 aviso = "Digite o preço que está na Shopee, por exemplo 29,90."
             elif len(nome) > 150:  # 44a rodada: cortar escondia o fim do nome do bloqueio NBCAL
                 aviso = "O nome passou de 150 caracteres: escreva um nome mais curto."

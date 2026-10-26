@@ -88,6 +88,42 @@ class TestMontar(unittest.TestCase):
             self.assertFalse(r["ok"], tamanho)
             self.assertNotIn("mensagem", r)
 
+    def test_nbcal_grudado_em_numero_ou_palavra_barra(self):  # 45a rodada
+        from robo.curadoria import verificar_bloqueio
+        b, comb = CFG["bloqueios"], CFG.get("bloqueios_combinados")
+        for nome in ("Kit Enxoval Mamadeira260ml", "KitMamadeira", "MAMADEIRAANTICOLICA", "Chupeta3pcs",
+                     "260mlMamadeira Bebe", "Kit Enxoval com fórmulainfantil", "Mamadeiras Kit", "chupetinha? Chupeta2un",
+                     "Bico260ml mamadeira", "LeiteEmPo Infantil", "papinha8m"):
+            self.assertIsNotNone(verificar_bloqueio(nome, b, comb), nome)
+        for nome in ("Armário Organizador de Cozinha", "Presilha Bico de Pato Cabelo", "Toalha Bicolor de Banho",
+                     "Almofada de Amamentação", "Body Bebê Algodão 3 Peças", "Organizador de Remédios Semanal"):
+            if "Remédios" in nome:
+                continue  # 'remedio' e proibido de proposito (venda controlada)
+            self.assertIsNone(verificar_bloqueio(nome, b, comb), nome)
+
+    def test_propriedade_palavra_nbcal_sempre_barra(self):  # qualquer cola em volta
+        import random
+        from robo.curadoria import verificar_bloqueio
+        rnd = random.Random(45)
+        termos = ["mamadeira", "chupeta", "papinha", "formula infantil", "leite em po", "aptamil", "chuquinha"]
+        colas = ["", " ", "-", "_", "260ml", "3", "Kit", "KIT ", "Anticolica", "+", "2un", "(", ")"]
+        for _ in range(2000):
+            termo = rnd.choice(termos)
+            grafia = "".join(ch.upper() if rnd.random() < .5 else ch for ch in termo)
+            if rnd.random() < .5:
+                grafia = grafia.replace(" ", rnd.choice(["", "-", " "]))
+            nome = rnd.choice(colas) + rnd.choice(colas) + grafia + rnd.choice(colas) + rnd.choice(colas)
+            self.assertIsNotNone(verificar_bloqueio(nome, CFG["bloqueios"], CFG.get("bloqueios_combinados")), nome)
+
+    def test_mensagem_de_produto_grudado_nao_sai(self):  # o caminho exato da 45a
+        url = "https://shopee.com.br/Kit-Enxoval-Mamadeira260ml-i.55.111"
+        r = montar_postagem(CURTO, "29,90", CFG, abrir=abridor(url))
+        self.assertFalse(r["ok"])
+        self.assertNotIn("mensagem", r)
+
+    def test_preco_longo_e_lido_inteiro(self):  # 45a rodada: cortar mudava R$ 100,99 para R$ 100,00
+        self.assertEqual(ler_preco("0" * 17 + "100,99"), 100.99)
+
     def test_nome_digitado_longo_demais_e_recusado_nao_cortado(self):
         r = montar_postagem(CURTO, "29,90", CFG, nome_digitado="Almofada " * 30, abrir=abridor(SEM_NOME))
         self.assertFalse(r["ok"])
@@ -148,7 +184,7 @@ class TestComandoPostagem(unittest.TestCase):
         codigo, texto, dados = self.rodar(["--link", CURTO, "--preco", "39,90"])
         self.assertEqual(codigo, 0)
         self.assertIn("MENSAGEM PRONTA", texto)
-        self.assertEqual(dados["versao"], 1)
+        self.assertEqual(dados["versao"], 2)
         self.assertTrue(dados["postagens"][0]["ok"])
 
     def test_argumentos_errados(self):
@@ -212,6 +248,8 @@ class TestTelaPostagem(unittest.TestCase):
         self.assertIn("Digite o preço", self.P._estado["aviso_postagem"])
         self.post({"link": CURTO, "preco": "1", "nome": "Kit " + "a " * 100 + "Mamadeira"})  # 44a rodada
         self.assertIn("150 caracteres", self.P._estado["aviso_postagem"])
+        self.post({"link": CURTO, "preco": "0" * 17 + "100,99"})  # 45a: nunca cortar o preco
+        self.assertIn("Digite o preço", self.P._estado["aviso_postagem"])
         self.assertEqual(self.chamadas, [])
 
     def test_post_de_outro_site_e_recusado(self):
@@ -225,7 +263,7 @@ class TestTelaPostagem(unittest.TestCase):
              "mensagem": "#publi\n<b>oi</b>", "mensagem_feed": "f", "avisos": ["<i>a</i>"], "quando": "2026-10-26T10:00:00"},
             {"ok": False, "motivos": ["<img src=x onerror=alert(1)>"], "link": "javascript:alert(1)", "quando": "x"},
             {"ok": True, "nome": "sem mensagem"}, "lixo"]
-        (Path(self.tmp.name) / "postagens.json").write_text(json.dumps({"versao": 1, "postagens": postagens}),
+        (Path(self.tmp.name) / "postagens.json").write_text(json.dumps({"versao": 2, "postagens": postagens}),
                                                             encoding="utf-8")
         pagina = self.P._pagina("demo")
         self.assertIn('id="postagem"', pagina)
@@ -239,6 +277,10 @@ class TestTelaPostagem(unittest.TestCase):
         (Path(self.tmp.name) / "postagens.json").write_text(json.dumps({"postagens": [{"ok": True, "nome": "VELHA",
                                                                                      "mensagem": "m"}]}), encoding="utf-8")
         self.assertNotIn("VELHA", self.P._pagina("demo"))
+        # 45a rodada: as da versao 1 (antes da correcao do bloqueio NBCAL) tambem nao aparecem
+        (Path(self.tmp.name) / "postagens.json").write_text(json.dumps({"versao": 1, "postagens": [
+            {"ok": True, "nome": "VERSAO1", "mensagem": "m", "link": CURTO}]}), encoding="utf-8")
+        self.assertNotIn("VERSAO1", self.P._pagina("demo"))
         (Path(self.tmp.name) / "postagens.json").write_text("{quebrado", encoding="utf-8")
         self.assertIn('id="postagem"', self.P._pagina("demo"))
 

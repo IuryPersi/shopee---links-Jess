@@ -73,12 +73,31 @@ def similaridade(a: str, b: str) -> float:
     return len(ta & tb) / len(ta | tb)
 
 
+_LETRA_NUMERO = re.compile(r"(?<=[a-z])(?=[0-9])|(?<=[0-9])(?=[a-z])")
+_MIN_GRUDADO = 6  # termos curtos ('arma', 'vape', 'chuca') so como palavra inteira: 'armario', 'machucado'
+
+
+def _raiz_bloqueio(nome: str) -> str:
+    """raiz() com letra e numero separados (45a rodada: 'Mamadeira260ml' escapava do bloqueio)."""
+    return raiz(_LETRA_NUMERO.sub(" ", normalizar(nome)))
+
+
+def _tem_bloqueio(norm: str, compacto: str, frase: str) -> bool:
+    """Palavra inteira OU grudada: 'kitmamadeira', 'MamadeiraAnticolica'. Bloquear a mais e seguro
+    (o produto so fica de fora); deixar passar NBCAL nao e."""
+    if _tem(norm, frase):
+        return True
+    alvo = raiz(frase).replace(" ", "")
+    return len(alvo) >= _MIN_GRUDADO and alvo in compacto
+
+
 def verificar_bloqueio(nome: str, bloqueios: dict, combinados: dict | None = None) -> str | None:
-    norm = raiz(nome)
+    norm = _raiz_bloqueio(nome)
+    compacto = normalizar(nome).replace(" ", "")
     for grupo, lista in bloqueios.items():
         if grupo.startswith("_"):
             continue
-        if any(_tem(norm, p) for p in lista):
+        if any(_tem_bloqueio(norm, compacto, p) for p in lista):
             return NOMES_BLOQUEIO.get(grupo, f"bloqueado: {grupo}")
     for grupo, regras in (combinados or {}).items():
         if grupo.startswith("_"):
@@ -90,7 +109,7 @@ def verificar_bloqueio(nome: str, bloqueios: dict, combinados: dict | None = Non
 
 
 def verificar_atencao(nome: str, atencao: dict) -> str | None:
-    norm = raiz(nome)
+    norm = _raiz_bloqueio(nome)
     avisos = [NOMES_ATENCAO.get(g, f"atenção: {g}") for g, lista in atencao.items()
               if not g.startswith("_") and any(_tem(norm, p) for p in lista)]
     return "; ".join(avisos) or None

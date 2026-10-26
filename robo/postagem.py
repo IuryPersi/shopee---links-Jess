@@ -20,7 +20,7 @@ from .curadoria import verificar_atencao, verificar_bloqueio
 from .links import examinar_link, nivel_do_exame, texto_do_exame
 from .texto import nome_curto, reais
 
-VERSAO_POSTAGEM = 1
+VERSAO_POSTAGEM = 2  # 45a rodada: mensagens montadas antes da correcao do bloqueio NBCAL nao valem mais
 MAX_POSTAGENS = 20
 _TAM_NOME_DIGITADO = 150
 _PRECO = re.compile(r"(?:R\$\s*)?([0-9]{1,3}(?:\.[0-9]{3})+|[0-9]+)(?:[,.]([0-9]{1,2}))?", re.ASCII)
