@@ -23,7 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from .config import RAIZ, ler_env, ler_nicho
-from .postagem import MAX_POSTAGENS, VERSAO_POSTAGEM, registro_confiavel
+from .postagem import MAX_POSTAGENS, TEXTO_CONFIRMACAO, VERSAO_POSTAGEM, registro_confiavel
 from .links import (ESTADOS_EXAME, ICONES, MAX_LINKS_COLADOS, VERSAO_CONFERENCIA, endereco_seguro, links_do_texto,
                     nivel_do_exame, texto_do_exame)
 from .texto import milhar, reais
@@ -267,6 +267,9 @@ confere o link e monta a mensagem. Mamadeira, bico, chupeta e fórmula são barr
 <input name="preco" required maxlength="20" inputmode="decimal" placeholder="Preço agora, ex.: 29,90">
 <input name="nome" maxlength="150" placeholder="Nome do produto (só se o link não trouxer)">
 <select name="tag">{opcoes}</select>
+<label class="dica" style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" name="confirmo"
+value="nao-e-nbcal" style="width:auto;margin-top:3px"> <span>{e(TEXTO_CONFIRMACAO)}. Obrigatório em bebê e
+maternidade.</span></label>
 <button class="atualizar"{trava}>Montar postagem</button></form>
 {aviso}{andando}{f'<ul class="res">{"".join(cartoes)}</ul>' if cartoes else ""}
 </details>"""
@@ -586,6 +589,8 @@ class _Handler(BaseHTTPRequestHandler):
                 args = ["postagem", "--link", links[0], "--preco", preco, "--tag", tag]
                 if nome:
                     args += ["--nome", nome]
+                if campos.get("confirmo") == "nao-e-nbcal":  # caixa marcada pela pessoa
+                    args += ["--confirmo", "nao-e-nbcal"]
                 threading.Thread(target=_executar, args=("postagem", args), daemon=True).start()
                 time.sleep(0.3)
             else:

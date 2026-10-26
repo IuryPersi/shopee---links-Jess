@@ -50,12 +50,17 @@ Para postar enquanto a Open API não é liberada:
    **Link personalizado**.
 3. Na tela, em **Montar postagem**, cole o link e o **preço que está vendo**.
    Se o endereço não trouxer o nome do produto, digite o nome também. Escolha a
-   tag (já vem em maternidade) e clique em **Montar postagem**.
+   tag (já vem em maternidade). Em **bebê** e **maternidade**, marque a caixa
+   confirmando que o produto não é mamadeira, bico, chupeta, protetor de mamilo,
+   copo/caneca de transição nem alimento ou leite infantil. Clique em **Montar
+   postagem**.
 4. O robô:
    - confere o link (precisa dar ✓: endereço de produto com a marcação de
      afiliado da Shopee);
-   - barra mamadeira, bico, chupeta e fórmula (NBCAL), falsificação e
-     proibidos;
+   - barra mamadeira, bico, chupeta, protetor de mamilo, copo de transição e
+     fórmula (NBCAL), inclusive pelas marcas e palavras típicas desses produtos
+     em qualquer tag, além de falsificação e proibidos. Nenhuma lista cobre todo
+     título da Shopee: por isso a confirmação acima é obrigatória;
    - limpa o nome (sem números nem promessas do vendedor);
    - monta a mensagem com **"Por R$ Y"**.
 5. **Copiar mensagem** (ou **Feed**) e poste. Confira o preço no app antes.
@@ -195,7 +200,7 @@ filtros e bloqueios.
 py -3.12 -m unittest discover -s tests
 ```
 
-Os 250 testes rodam sem internet. No computador de desenvolvimento, um gancho
+Os 252 testes rodam sem internet. No computador de desenvolvimento, um gancho
 `pre-commit` roda a suíte e barra commit com teste falhando. O histórico da auditoria externa
 (Codex), a validação real na Shopee e os riscos aceitos estão em
 [`docs/AUDITORIA.md`](docs/AUDITORIA.md).

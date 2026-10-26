@@ -193,24 +193,33 @@ def menciona_sem_contexto(nome: str, combinados: dict | None) -> str | None:
 # Trava por RAIZ do "Montar postagem" nas tags de bebe/maternidade (51a rodada: cada rodada achava
 # um titulo real novo; lista de termos nao fecha). Qualquer pedaco com uma destas raizes barra; os
 # acessorios conhecidos saem antes. Bloquear a mais no manual so faz escolher outro produto.
-_RAIZES_ALIMENTACAO = re.compile(
-    r"mamadeir|chupet|chuquinh|^chucas?$|bi(?:co|cos|quinho|quinhos)(?!lor)|mamil|seio|^copos?$|copo|"
-    r"transica|trainer|treinament|formula|^leites?$|leite|papinh|alimentador|mingau|^mama$|amament?ador")
+_RAIZES_ALIMENTACAO = re.compile(  # nas tags bebe e maternidade
+    r"mamadeir|chupet|chuquinh|^chucas?$|bi(?:co|cos|quinho|quinhos)(?!lor)|mamil|seio|copo|caneca|"
+    r"transica|trainer|treinament|aprendiz|antivazament|formula|leite|papinh|alimentador|mingau|^mama$|"
+    r"amament?ador|sippy|canudo")
+# em QUALQUER tag do manual (52a rodada: escolher 'cozinha' desligava a trava): marcas de
+# alimentacao infantil e palavras que so existem nesse tipo de produto
+_RAIZES_ALIMENTACAO_TODA_TAG = re.compile(
+    r"mamadeir|chupet|chuquinh|mamil|antivazament|aprendiz|transica|trainer|papinh|sippy|"
+    r"^nuk$|^lillo$|^avent$|^mam$|^kuka$|^chicco$|^tommee$|^tippee$|^pigeon$|^evenflo$|^munchkin$|"
+    r"^nuby$|^buba$|^medela$|^comtec$|^nestogeno$|^aptamil$|^enfamil$|^similac$|^milupa$|^mucilon$")
 _ACESSORIOS_PERMITIDOS_MANUAL = re.compile(
     r"absorvente(?: ?(?:de|para|p))? ?seio[a-z]*|sutia[a-z]*(?: ?(?:de|para))? ?amamentacao|"
     r"almofada(?: ?(?:de|para))? ?amamentacao|travesseiro(?: ?(?:de|para))? ?amamentacao")
 
 
-def raiz_de_alimentacao(nome: str, combinados: dict | None = None) -> str | None:
+def raiz_de_alimentacao(nome: str, combinados: dict | None = None, toda_tag: bool = False) -> str | None:
     """A raiz de alimentacao infantil que aparece no nome (para o aviso), ou None. As excecoes das
-    regras combinadas valem aqui tambem ('presilha bico de pato', confeitaria)."""
+    regras combinadas valem aqui tambem ('presilha bico de pato', confeitaria). toda_tag=True usa o
+    conjunto que vale em qualquer tag (marcas e palavras exclusivas de alimentacao infantil)."""
+    raizes = _RAIZES_ALIMENTACAO_TODA_TAG if toda_tag else _RAIZES_ALIMENTACAO
     excecoes = [x for regras in (combinados or {}).values() if isinstance(regras, list)
                 for regra in regras for x in regra.get("exceto") or []]
     for pedacos in (pedacos_bloqueio(nome), pedacos_bloqueio(nome, camel=False)):
         excecao = any(_tem_termo(pedacos, x) for x in excecoes)
         texto = _ACESSORIOS_PERMITIDOS_MANUAL.sub(" ", " ".join(_sem_acessorio_limpeza(pedacos)))
         for pedaco in texto.split():
-            m = _RAIZES_ALIMENTACAO.search(pedaco)
+            m = raizes.search(pedaco)
             if m and not (excecao and m.group(0).startswith("bi")):  # excecao so livra o 'bico'
                 return m.group(0)
     return None

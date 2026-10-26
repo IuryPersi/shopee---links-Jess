@@ -233,12 +233,13 @@ def cmd_postagem(argv: list[str], abrir=None) -> int:
     20) para a tela 'Montar postagem'. Saida: 0 mensagem pronta | 1 nao montou (motivo na tela)."""
     import json
     from .postagem import MAX_POSTAGENS, VERSAO_POSTAGEM, assinatura, montar_postagem
-    args = _argumentos(argv, ("link", "preco", "nome", "tag"))
+    args = _argumentos(argv, ("link", "preco", "nome", "tag", "confirmo"))
     if not args or not args.get("link") or "preco" not in args:
         print("Uso: python -m robo postagem --link https://s.shopee.com.br/... --preco 29,90 [--nome NOME] [--tag maternidade]")
         return 1
     r = montar_postagem(args["link"].strip(), args["preco"], ler_nicho(), nome_digitado=args.get("nome", ""),
-                        tag=args.get("tag", "maternidade"), abrir=abrir)
+                        tag=args.get("tag", "maternidade"), abrir=abrir,
+                        confirmado=args.get("confirmo") == "nao-e-nbcal")
     r["quando"] = datetime.now().isoformat(timespec="seconds")
     if r["ok"]:
         r["assinatura"] = assinatura(r)  # so a tela com a chave local aceita como pronta

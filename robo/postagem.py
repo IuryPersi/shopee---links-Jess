@@ -42,9 +42,16 @@ def _tags_validas(cfg: dict) -> dict:
     return {k: v for k, v in (cfg.get("tags") or {}).items() if not k.startswith("_") and isinstance(v, dict)}
 
 
+TAGS_COM_CONFIRMACAO = ("bebe", "maternidade")
+TEXTO_CONFIRMACAO = ("Confirmo que o produto NÃO é mamadeira, bico, chupeta, protetor de mamilo, copo ou caneca "
+                     "de transição/treinamento nem alimento ou leite infantil (NBCAL)")
+
+
 def montar_postagem(link: str, preco_texto: str, cfg: dict, nome_digitado: str = "",
-                    tag: str = "maternidade", abrir=None) -> dict:
-    """Resultado SEMPRE com 'ok' e 'motivos'. So ha 'mensagem' quando ok=True."""
+                    tag: str = "maternidade", abrir=None, confirmado: bool = False) -> dict:
+    """Resultado SEMPRE com 'ok' e 'motivos'. So ha 'mensagem' quando ok=True. Nas tags de bebe e
+    maternidade a pessoa tem de CONFIRMAR que o produto nao e NBCAL (52a rodada: nenhuma lista de
+    palavras cobre todos os titulos reais; as travas automaticas continuam valendo antes disso)."""
     exame = examinar_link(link, abrir=abrir)
     preco = ler_preco(preco_texto)
     nome_digitado = " ".join(str(nome_digitado or "").split())  # INTEIRO: o bloqueio le tudo (44a rodada)
@@ -61,6 +68,8 @@ def montar_postagem(link: str, preco_texto: str, cfg: dict, nome_digitado: str =
     nome_endereco = exame.get("nome_inteiro") or exame.get("nome") or ""  # inteiro, nunca cortado
     if link_ok and not nome_endereco and not nome_digitado:
         motivos.append("Nome: o endereço do link não traz o nome do produto; digite o nome no campo Nome.")
+    if tag in TAGS_COM_CONFIRMACAO and confirmado is not True:
+        motivos.append(f"Confirmação: marque \"{TEXTO_CONFIRMACAO}\".")
     if len(nome_digitado) > _TAM_NOME_DIGITADO:  # recusa em vez de cortar: cortar esconderia o fim
         motivos.append(f"Nome: use no máximo {_TAM_NOME_DIGITADO} caracteres no nome digitado.")
 
@@ -70,8 +79,10 @@ def montar_postagem(link: str, preco_texto: str, cfg: dict, nome_digitado: str =
         if candidato:
             bloqueio = (verificar_bloqueio(candidato, bloqueios, combinados)
                         or menciona_sem_contexto(candidato, combinados))  # 49a: trava rigida no manual
-            if not bloqueio and tag in ("bebe", "maternidade"):  # 51a: trava por raiz no manual
-                raiz_achada = raiz_de_alimentacao(candidato, combinados)
+            if not bloqueio:  # 51a/52a: trava por raiz no manual (marcas e exclusivas em toda tag)
+                raiz_achada = (raiz_de_alimentacao(candidato, combinados, toda_tag=True)
+                               or (raiz_de_alimentacao(candidato, combinados)
+                                   if tag in ("bebe", "maternidade") else None))
                 if raiz_achada:
                     bloqueio = (f"item de alimentação infantil ('{raiz_achada}') não pode ser divulgado com "
                                 "desconto (NBCAL); escolha outro produto")
@@ -88,7 +99,8 @@ def montar_postagem(link: str, preco_texto: str, cfg: dict, nome_digitado: str =
     resultado = {"versao": VERSAO_POSTAGEM, "link": link, "preco": preco, "tag": tag, "emoji": emoji,
                  "nome": nome, "nome_endereco": nome_endereco, "nome_digitado": nome_digitado,
                  "item": exame.get("item"), "afiliado": exame.get("afiliado") if nivel_do_exame(exame) == "ok" else None,
-                 "conferencia": texto_do_exame(exame), "avisos": avisos, "motivos": motivos, "ok": not motivos}
+                 "conferencia": texto_do_exame(exame), "confirmado_nbcal": confirmado is True,
+                 "avisos": avisos, "motivos": motivos, "ok": not motivos}
     if motivos:
         return resultado
     resultado["mensagem"], resultado["mensagem_feed"] = mensagens(emoji, nome, preco, link)
@@ -105,7 +117,7 @@ def mensagens(emoji: str, nome: str, preco: float, link: str) -> tuple[str, str]
 
 PASTA_CHAVE = None  # testes trocam; o padrao e <raiz>/dados (fora do Git)
 _CAMPOS_ASSINADOS = ("versao", "link", "preco", "tag", "emoji", "nome", "nome_endereco", "nome_digitado",
-                     "item", "afiliado", "mensagem", "mensagem_feed", "ok")
+                     "item", "afiliado", "mensagem", "mensagem_feed", "ok", "confirmado_nbcal")
 
 
 def _chave() -> bytes:
@@ -154,11 +166,15 @@ def registro_confiavel(p: dict, cfg: dict) -> bool:
         # "De R$ 99,90 - 60% OFF" escrito a mao no arquivo nao passa
         if not nome or nome == "Produto" or nome_curto(nome) != nome:
             return False
+        if p.get("tag") in TAGS_COM_CONFIRMACAO and p.get("confirmado_nbcal") is not True:
+            return False
         if not isinstance(p.get("afiliado"), str) or not _ID_AFILIADO.fullmatch(p["afiliado"]):
             return False
         bloqueios, combinados = cfg.get("bloqueios") or {}, cfg.get("bloqueios_combinados")
         for n in (nome, str(p.get("nome_endereco") or ""), str(p.get("nome_digitado") or "")):
             if n and (verificar_bloqueio(n, bloqueios, combinados) or menciona_sem_contexto(n, combinados)):
+                return False
+            if n and raiz_de_alimentacao(n, combinados, toda_tag=True):
                 return False
             if n and p.get("tag") in ("bebe", "maternidade") and raiz_de_alimentacao(n, combinados):
                 return False

@@ -53,7 +53,7 @@ class TestPreco(unittest.TestCase):
 
 class TestMontar(unittest.TestCase):
     def test_link_certo_monta_a_mensagem_so_com_por(self):
-        r = montar_postagem(CURTO, "39,90", CFG, abrir=abridor(ALMOFADA))
+        r = montar_postagem(CURTO, "39,90", CFG, abrir=abridor(ALMOFADA), confirmado=True)
         self.assertTrue(r["ok"], r["motivos"])
         linhas = r["mensagem"].splitlines()
         self.assertEqual(linhas[0], "#publi · link de afiliado")
@@ -188,6 +188,43 @@ class TestMontar(unittest.TestCase):
                      "Copo Térmico Inox 500ml", "Protetor de Colchão Impermeável", "Absorvente de Seio Lavável"):
             self.assertIsNone(verificar_bloqueio(nome, b, comb), nome)
 
+    def test_bebe_e_maternidade_exigem_confirmacao(self):  # 52a: a ultima camada e a pessoa
+        for tag in ("bebe", "maternidade"):
+            r = montar_postagem(CURTO, "39,90", CFG, tag=tag, abrir=abridor(ALMOFADA))
+            self.assertFalse(r["ok"])
+            self.assertTrue(any(m.startswith("Confirmação:") for m in r["motivos"]))
+            self.assertNotIn("mensagem", r)
+            r = montar_postagem(CURTO, "39,90", CFG, tag=tag, abrir=abridor(ALMOFADA), confirmado=True)
+            self.assertTrue(r["ok"], r["motivos"])
+            r = montar_postagem(CURTO, "39,90", CFG, tag=tag, abrir=abridor(ALMOFADA), confirmado="sim")
+            self.assertFalse(r["ok"])  # so True de verdade conta
+        # a confirmacao NUNCA livra as travas automaticas
+        r = montar_postagem(CURTO, "29,90", CFG, nome_digitado="Kit Mamadeira Anticólica", abrir=abridor(SEM_NOME),
+                            confirmado=True)
+        self.assertFalse(r["ok"])
+        # registro salvo sem a confirmacao nao aparece como pronto, mesmo assinado
+        r = montar_postagem(CURTO, "39,90", CFG, tag="casa", abrir=abridor(ALMOFADA))
+        self.assertTrue(r["ok"], r["motivos"])
+        r = {**r, "tag": "maternidade", "confirmado_nbcal": False}
+        r["assinatura"] = assinatura(r)
+        self.assertFalse(POSTAGEM.registro_confiavel(r, CFG))
+
+    def test_exemplos_da_52a(self):
+        from robo.curadoria import verificar_bloqueio
+        b, comb = CFG["bloqueios"], CFG.get("bloqueios_combinados")
+        caneca = "Caneca Lillo Antivazamento Aprendizado Magia Azul 207ml"
+        nuk = "Copo Antivazamento Active Cup First Choice 300ml NUK - Rosa"
+        for nome in (caneca, nuk):
+            for tag in ("bebe", "maternidade", "cozinha", "casa", "feminino", "limpeza"):  # trocar a tag nao livra
+                r = montar_postagem(CURTO, "29,90", CFG, nome_digitado=nome, tag=tag, abrir=abridor(SEM_NOME))
+                self.assertFalse(r["ok"], (nome, tag))
+        self.assertIsNone(verificar_bloqueio("Protetor Adesivo De Silicone Para Seios Invisível Reutilizável", b, comb))
+        r = montar_postagem(CURTO, "29,90", CFG, nome_digitado="Protetor Adesivo De Silicone Para Seios Invisível",
+                            tag="feminino", abrir=abridor(SEM_NOME))
+        self.assertFalse(any(m.startswith("Produto:") for m in r["motivos"]), r["motivos"])
+        r = montar_postagem(CURTO, "29,90", CFG, nome_digitado="Copo Térmico Inox Café", tag="cozinha", abrir=abridor(SEM_NOME))
+        self.assertFalse(any(m.startswith("Produto:") for m in r["motivos"]), r["motivos"])
+
     def test_trava_por_raiz_no_manual_de_bebe_e_maternidade(self):  # 51a
         for nome in ("Copo Infantil Alça Rosa", "Kit Alimentador Fruta", "Mingau Pronto", "Leite Infantil",
                      "Conchas Seio Silicone", "Caneca Transição Bebê"):
@@ -197,10 +234,10 @@ class TestMontar(unittest.TestCase):
         for nome in ("Almofada de Amamentação Macia", "Absorvente de Seio Lavável", "Body Bebê Algodão",
                      "Bolsa Maternidade Mochila", "Toalha de Banho Bebê", "Escova de Mamadeira Limpeza"):
             r = montar_postagem(CURTO, "19,90", CFG, nome_digitado=nome, tag="bebe", abrir=abridor(SEM_NOME))
-            self.assertFalse(any("NBCAL" in m for m in r["motivos"]), (nome, r["motivos"]))
+            self.assertFalse(any(m.startswith("Produto:") for m in r["motivos"]), (nome, r["motivos"]))
         # fora de bebe/maternidade a trava por raiz nao vale (copo termico de cozinha)
         r = montar_postagem(CURTO, "19,90", CFG, nome_digitado="Copo Térmico Inox", tag="cozinha", abrir=abridor(SEM_NOME))
-        self.assertFalse(any("NBCAL" in m for m in r["motivos"]), r["motivos"])
+        self.assertFalse(any(m.startswith("Produto:") for m in r["motivos"]), r["motivos"])
 
     def test_trava_rigida_do_manual_barra_qualquer_bico(self):  # 49a: sem contexto tambem
         for nome in ("Kit 2 Bicos Tamanho M", "Biquinho Universal", "KitBicos"):
@@ -208,7 +245,7 @@ class TestMontar(unittest.TestCase):
             self.assertFalse(r["ok"], nome)
         for nome in ("Presilha Bico de Pato Bebê", "Toalha Bicolor Bebê", "Kit Bicos de Confeitar"):
             r = montar_postagem(CURTO, "19,90", CFG, nome_digitado=nome, abrir=abridor(SEM_NOME))
-            self.assertFalse(any("NBCAL" in m for m in r["motivos"]), (nome, r["motivos"]))
+            self.assertFalse(any(m.startswith("Produto:") for m in r["motivos"]), (nome, r["motivos"]))
 
     def test_propriedade_diminutivo_e_aumentativo(self):
         from robo.curadoria import verificar_bloqueio
@@ -285,13 +322,14 @@ class TestMontar(unittest.TestCase):
         r = montar_postagem(CURTO, "19,90", CFG, abrir=abridor(SEM_NOME))
         self.assertFalse(r["ok"])
         self.assertTrue(any(m.startswith("Nome:") for m in r["motivos"]))
-        r = montar_postagem(CURTO, "19,90", CFG, nome_digitado="Almofada de Amamentação", abrir=abridor(SEM_NOME))
+        r = montar_postagem(CURTO, "19,90", CFG, nome_digitado="Almofada de Amamentação", abrir=abridor(SEM_NOME),
+                            confirmado=True)
         self.assertTrue(r["ok"], r["motivos"])
         self.assertIn("Almofada", r["mensagem"])
 
     def test_nome_com_promessa_do_vendedor_e_limpo(self):
         r = montar_postagem(CURTO, "19,90", CFG, nome_digitado="Almofada de Amamentação 70% OFF Frete Grátis 2x1",
-                            abrir=abridor(SEM_NOME))
+                            abrir=abridor(SEM_NOME), confirmado=True)
         self.assertTrue(r["ok"], r["motivos"])
         for proibido in ("70", "%", "OFF", "Frete", "2x1"):
             self.assertNotIn(proibido, r["mensagem"].splitlines()[1])
@@ -317,7 +355,7 @@ class TestComandoPostagem(unittest.TestCase):
         return codigo, saida.getvalue(), dados
 
     def test_grava_para_a_tela(self):
-        codigo, texto, dados = self.rodar(["--link", CURTO, "--preco", "39,90"])
+        codigo, texto, dados = self.rodar(["--link", CURTO, "--preco", "39,90", "--confirmo", "nao-e-nbcal"])
         self.assertEqual(codigo, 0)
         self.assertIn("MENSAGEM PRONTA", texto)
         self.assertEqual(dados["versao"], 2)
@@ -376,6 +414,14 @@ class TestTelaPostagem(unittest.TestCase):
         self.assertEqual((status, destino), (303, "/?aba=postagem"))
         self.assertEqual(self.chamadas, [("postagem", ["postagem", "--link", CURTO, "--preco", "39,90",
                                                        "--tag", "bebe", "--nome", "Almofada"])])
+        self.chamadas.clear()
+        self.P._estado["rodando"] = None
+        self.post({"link": CURTO, "preco": "39,90", "tag": "bebe", "confirmo": "nao-e-nbcal"})
+        self.assertEqual(self.chamadas[0][1][-2:], ["--confirmo", "nao-e-nbcal"])
+        self.chamadas.clear()
+        self.P._estado["rodando"] = None
+        self.post({"link": CURTO, "preco": "39,90", "tag": "bebe", "confirmo": "on"})  # valor estranho nao confirma
+        self.assertNotIn("--confirmo", self.chamadas[0][1])
 
     def test_sem_link_ou_sem_preco_so_avisa(self):
         self.post({"link": "nada", "preco": "1"})
@@ -398,7 +444,7 @@ class TestTelaPostagem(unittest.TestCase):
                                                             encoding="utf-8")
 
     def _bom(self):
-        bom = montar_postagem(CURTO, "39,90", CFG, abrir=abridor(ALMOFADA))
+        bom = montar_postagem(CURTO, "39,90", CFG, abrir=abridor(ALMOFADA), confirmado=True)
         self.assertTrue(bom["ok"])
         bom["quando"] = "2026-10-26T10:00:00"
         bom["assinatura"] = assinatura(bom)
