@@ -291,7 +291,7 @@ _ACESSORIO = re.compile(
 _ACESSORIO_LIMPEZA = re.compile(  # ate 3 palavras no meio: 'escova de limpeza para mamadeiras' (51a)
     r"(?:escova|escovinha|secador|secadora|escorredor|esterilizador|cesto)"
     # 55a rodada: 'com' NAO conta - 'escova COM mamadeira' e kit que traz a mamadeira junto
-    r"(?: (?:de|da|do|para|p|limpeza|lavar|secar|giratoria|silicone|nylon|esponja)){0,4} (?:de|da|do|para|p) ?mamadeir[a-z]*"
+    r"(?: (?:de|da|do|para|p|limpeza|lavar|secar|giratoria|silicone|nylon|esponja)){0,4} ?mamadeir[a-z]*"
     r"(?: ?(?:e|e de|e para) ?bi(?:co|cos|quinho|quinhos))?")
 
 

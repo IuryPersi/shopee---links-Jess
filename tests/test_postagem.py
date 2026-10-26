@@ -233,7 +233,8 @@ class TestMontar(unittest.TestCase):
         for nome in ("Kit Escova com Mamadeira e Bico", "Escova com Mamadeira Inclusa", "Kit Mamadeira e Escova"):
             self.assertIsNotNone(verificar_bloqueio(nome, b, comb), nome)
         for nome in ("Escova de Mamadeira", "Escova para Mamadeira e Bico", "Kit Escova de Limpeza para Mamadeiras e Bico",
-                     "Escova Giratória para Mamadeiras", "Secador de Mamadeira e Bico"):
+                     "Escova Giratória para Mamadeiras", "Secador de Mamadeira e Bico",
+                     "Escova de Limpeza Mamadeira Bebê", "Escova Mamadeira e Bico Silicone Bebê"):  # 56a
             self.assertIsNone(verificar_bloqueio(nome, b, comb), nome)
 
     def test_confirmacao_em_toda_tag(self):  # 54a: o copo de transicao real sem palavra de bebe
