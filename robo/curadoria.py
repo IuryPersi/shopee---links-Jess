@@ -154,16 +154,21 @@ def _tem_combinado(pedacos: list[str], palavra: str, contexto: list[str], exceto
     p = raiz(palavra)
     ctx = [raiz(c).replace(" ", "") for c in contexto]
     tem_ctx = any(_tem_termo(pedacos, c) for c in contexto)
-    if p in pedacos and tem_ctx:
-        return True
+    # a palavra em QUALQUER lugar do pedaco, com plural/diminutivo ('kitbicos', 'biquinho',
+    # 'bicosilicone'), mas nunca 'bicolor' (48a rodada: exigir o comeco do pedaco perdia 'kitbicos')
+    forma = _FORMAS_COMBINADO.get(p) or re.compile(rf"{re.escape(p)}(?:s|es)?")
     for pedaco in pedacos:
-        if pedaco.startswith(p) and pedaco != p:
-            resto = re.sub(rf"^(?:es|s)?{_LIGACAO}", "", pedaco[len(p):])  # plural grudado: 'bicoslatex'
-            if resto and any(resto.startswith(c) for c in ctx):
-                return True
-            if resto in ("", "s", "es") and tem_ctx:  # 'bicos' + contexto em outro pedaco
+        for m in forma.finditer(pedaco):
+            if pedaco[m.end():].startswith("lor"):  # bicolor
+                continue
+            resto = re.sub(rf"^{_LIGACAO}", "", pedaco[m.end():])
+            if tem_ctx or (resto and any(resto.startswith(c) for c in ctx)):
                 return True
     return False
+
+
+# plural e diminutivo das palavras das regras combinadas
+_FORMAS_COMBINADO = {"bico": re.compile(r"bi(?:co|quinho|quinhos|cos|cao|coes)")}
 
 
 def _radicais(bloqueios: dict) -> list[str]:
@@ -186,7 +191,7 @@ def _radicais(bloqueios: dict) -> list[str]:
 def verificar_bloqueio(nome: str, bloqueios: dict, combinados: dict | None = None) -> str | None:
     """Barra se o termo aparece em QUALQUER das duas leituras do nome (com e sem separar pela
     maiuscula): bloquear a mais so tira o produto da tela; deixar NBCAL passar nao pode."""
-    leituras = (pedacos_bloqueio(nome), pedacos_bloqueio(nome, camel=False))
+    leituras = tuple(_sem_acessorio(p) for p in (pedacos_bloqueio(nome), pedacos_bloqueio(nome, camel=False)))
     for grupo, lista in bloqueios.items():
         if grupo.startswith("_"):
             continue
@@ -203,6 +208,18 @@ def verificar_bloqueio(nome: str, bloqueios: dict, combinados: dict | None = Non
                    for pedacos in leituras):
                 return NOMES_BLOQUEIO.get(grupo, f"bloqueado: {grupo}")
     return None
+
+
+# Acessorio de mamadeira NAO e mamadeira (48a rodada: 'Bolsa termica porta mamadeirinhas' era
+# barrado). O trecho do acessorio sai do nome ANTES do bloqueio; se sobrar mamadeira de verdade
+# ('porta mamadeira com 2 mamadeiras'), continua barrado.
+_ACESSORIO = re.compile(
+    r"(?:porta|escova|escovinha|secador|secadora|suporte|organizador|esterilizador|aquecedor)"
+    r"(?: ?(?:de|da|do|para|p))? ?mamadeir[a-z]*")
+
+
+def _sem_acessorio(pedacos: list[str]) -> list[str]:
+    return _ACESSORIO.sub(" ", " ".join(pedacos)).split()
 
 
 def _raiz_bloqueio(nome: str) -> str:

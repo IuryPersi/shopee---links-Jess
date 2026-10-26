@@ -17,7 +17,11 @@ from urllib.parse import urlencode
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from robo.config import ler_nicho  # noqa: E402
-from robo.postagem import ler_preco, montar_postagem  # noqa: E402
+import robo.postagem as POSTAGEM  # noqa: E402
+from robo.postagem import assinatura, ler_preco, mensagens, montar_postagem  # noqa: E402
+
+_PASTA_CHAVE = tempfile.TemporaryDirectory()  # a chave dos testes nunca vai para dados/ de verdade
+POSTAGEM.PASTA_CHAVE = _PASTA_CHAVE.name
 
 CURTO = "https://s.shopee.com.br/AbC123"
 MARCA = "?utm_medium=affiliates&utm_source=an_10000000001"
@@ -136,6 +140,17 @@ class TestMontar(unittest.TestCase):
             self.assertIsNone(verificar_bloqueio(nome, b, comb), nome)
         r = montar_postagem(CURTO, "29,90", CFG, abrir=abridor("https://shopee.com.br/Chupetinha-silicone-bebe-i.55.111"))
         self.assertFalse(r["ok"])
+
+    def test_exemplos_da_48a(self):
+        from robo.curadoria import verificar_bloqueio
+        b, comb = CFG["bloqueios"], CFG.get("bloqueios_combinados")
+        for nome in ("Kitbicos silicone bebe", "Biquinho de silicone bebe", "Kit Biquinhos Latex Infantil",
+                     "Bolsa Térmica Porta Mamadeira com 2 Mamadeiras", "kitbicosilicone", "Bico Infantil Silicone"):
+            self.assertIsNotNone(verificar_bloqueio(nome, b, comb), nome)
+        for nome in ("Bolsa termica porta mamadeirinhas", "Porta Mamadeira Térmico", "Escova de Mamadeira Limpeza",
+                     "Secador de Mamadeiras", "Suporte para Mamadeira", "Portamamadeira Bebe",
+                     "Toalha Bicolor Infantil", "Saco de Confeitar com Bico de Silicone"):
+            self.assertIsNone(verificar_bloqueio(nome, b, comb), nome)
 
     def test_propriedade_diminutivo_e_aumentativo(self):
         from robo.curadoria import verificar_bloqueio
@@ -324,19 +339,33 @@ class TestTelaPostagem(unittest.TestCase):
         (Path(self.tmp.name) / "postagens.json").write_text(json.dumps({"versao": 2, "postagens": postagens}),
                                                             encoding="utf-8")
 
-    def test_registro_verdadeiro_aparece_pronto(self):
+    def _bom(self):
         bom = montar_postagem(CURTO, "39,90", CFG, abrir=abridor(ALMOFADA))
         self.assertTrue(bom["ok"])
         bom["quando"] = "2026-10-26T10:00:00"
+        bom["assinatura"] = assinatura(bom)
+        return bom
+
+    def test_registro_verdadeiro_aparece_pronto(self):
+        bom = self._bom()
         self._gravar([bom])
         pagina = self.P._pagina("demo")
         self.assertIn("Copiar mensagem</button>", pagina.split('id="postagem"')[1].split('id="conferir"')[0])
         self.assertIn("R$ 39,90", pagina)
         self.assertIn(f'href="{CURTO}"', pagina)
 
-    def test_registro_adulterado_nao_vira_mensagem_pronta(self):  # 46a rodada (risco)
-        bom = montar_postagem(CURTO, "39,90", CFG, abrir=abridor(ALMOFADA))
-        adulterados = [{**bom, "mensagem": bom["mensagem"] + "\nDe R$ 99,90"},          # mensagem trocada
+    def test_registro_adulterado_nao_vira_mensagem_pronta(self):  # 46a-48a rodadas
+        bom = self._bom()
+
+        def remontado(**troca):  # adulteracao CONSISTENTE: as duas mensagens remontadas
+            r = {**bom, **troca}
+            r["mensagem"], r["mensagem_feed"] = mensagens(r["emoji"], r["nome"], r["preco"], r["link"])
+            return r
+        adulterados = [
+            remontado(emoji="De R$ 99,90 - 60% OFF Frete Gratis"),            # 48a
+            remontado(link="https://shopee.com.br/buyer/login"),               # 48a
+            remontado(preco=0.5),                                              # 48a
+            {**bom, "assinatura": "0" * 64}, {k: v for k, v in bom.items() if k != "assinatura"},{**bom, "mensagem": bom["mensagem"] + "\nDe R$ 99,90"},          # mensagem trocada
                        {**bom, "nome": "Kit Mamadeira", "mensagem": "x"},               # NBCAL
                        {**bom, "afiliado": None}, {**bom, "link": "javascript:alert(1)"},
                        {**bom, "preco": 0}, {**bom, "preco": True},

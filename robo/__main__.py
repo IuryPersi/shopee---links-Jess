@@ -232,7 +232,7 @@ def cmd_postagem(argv: list[str], abrir=None) -> int:
     Monta a mensagem de um produto achado a mao (sem API). Grava saida/postagens.json (as ultimas
     20) para a tela 'Montar postagem'. Saida: 0 mensagem pronta | 1 nao montou (motivo na tela)."""
     import json
-    from .postagem import MAX_POSTAGENS, VERSAO_POSTAGEM, montar_postagem
+    from .postagem import MAX_POSTAGENS, VERSAO_POSTAGEM, assinatura, montar_postagem
     args = _argumentos(argv, ("link", "preco", "nome", "tag"))
     if not args or not args.get("link") or "preco" not in args:
         print("Uso: python -m robo postagem --link https://s.shopee.com.br/... --preco 29,90 [--nome NOME] [--tag maternidade]")
@@ -240,6 +240,8 @@ def cmd_postagem(argv: list[str], abrir=None) -> int:
     r = montar_postagem(args["link"].strip(), args["preco"], ler_nicho(), nome_digitado=args.get("nome", ""),
                         tag=args.get("tag", "maternidade"), abrir=abrir)
     r["quando"] = datetime.now().isoformat(timespec="seconds")
+    if r["ok"]:
+        r["assinatura"] = assinatura(r)  # so a tela com a chave local aceita como pronta
     destino = PASTA_SAIDA / "postagens.json"
     try:
         antigas = json.loads(destino.read_text(encoding="utf-8"))

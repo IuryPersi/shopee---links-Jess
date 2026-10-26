@@ -97,11 +97,48 @@ def mensagens(emoji: str, nome: str, preco: float, link: str) -> tuple[str, str]
             "\n".join(corpo + ["🔗 Link nos stories", "Preço pode mudar a qualquer momento."]))
 
 
+PASTA_CHAVE = None  # testes trocam; o padrao e <raiz>/dados (fora do Git)
+_CAMPOS_ASSINADOS = ("versao", "link", "preco", "tag", "emoji", "nome", "nome_endereco", "nome_digitado",
+                     "item", "afiliado", "mensagem", "mensagem_feed", "ok")
+
+
+def _chave() -> bytes:
+    """Chave local das postagens (dados/postagem.chave, criada na primeira vez, fora do Git)."""
+    import secrets
+    from pathlib import Path
+    from .config import RAIZ
+    pasta = Path(PASTA_CHAVE) if PASTA_CHAVE else RAIZ / "dados"
+    arq = pasta / "postagem.chave"
+    try:
+        chave = bytes.fromhex(arq.read_text(encoding="ascii").strip())
+        if len(chave) >= 32:
+            return chave
+    except (OSError, ValueError):
+        pass
+    pasta.mkdir(parents=True, exist_ok=True)
+    chave = secrets.token_bytes(32)
+    arq.write_text(chave.hex(), encoding="ascii")
+    return chave
+
+
+def assinatura(p: dict) -> str:
+    """HMAC dos campos que a tela mostra/copia (48a rodada: adulterar preco, link ou emoji e
+    remontar as mensagens nao basta - sem a assinatura certa, o registro nao vira mensagem pronta)."""
+    import hashlib
+    import hmac
+    import json
+    dados = json.dumps({k: p.get(k) for k in _CAMPOS_ASSINADOS}, ensure_ascii=False, sort_keys=True)
+    return hmac.new(_chave(), dados.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
 def registro_confiavel(p: dict, cfg: dict) -> bool:
-    """O registro salvo e um 'ok' de verdade: link seguro, ID de afiliado valido, nome que passa
-    nos bloqueios HOJE, preco na faixa e mensagens identicas as remontadas."""
+    """O registro salvo e um 'ok' de verdade: assinatura local certa, link seguro, ID de afiliado
+    valido, nome que passa nos bloqueios HOJE, preco na faixa e mensagens identicas as remontadas."""
+    import hmac
     from .links import _ID_AFILIADO, endereco_seguro, pagina_de_erro
     try:
+        if not isinstance(p.get("assinatura"), str) or not hmac.compare_digest(p["assinatura"], assinatura(p)):
+            return False
         preco, nome, link = p.get("preco"), str(p.get("nome") or ""), str(p.get("link") or "")
         if p.get("ok") is not True or not isinstance(preco, (int, float)) or isinstance(preco, bool):
             return False
