@@ -23,7 +23,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from .config import RAIZ, ler_env, ler_nicho
-from .postagem import MAX_POSTAGENS, VERSAO_POSTAGEM
+from .postagem import MAX_POSTAGENS, VERSAO_POSTAGEM, registro_confiavel
 from .links import (ESTADOS_EXAME, ICONES, MAX_LINKS_COLADOS, VERSAO_CONFERENCIA, endereco_seguro, links_do_texto,
                     nivel_do_exame, texto_do_exame)
 from .texto import milhar, reais
@@ -227,7 +227,14 @@ def _secao_postagem(est: dict) -> str:
     opcoes = "".join(f'<option value="{e(k)}"{" selected" if k == "maternidade" else ""}>'
                      f'{e(str(v.get("emoji", "")))} {e(str(v.get("rotulo", k)))}</option>' for k, v in cfg_tags.items())
     cartoes = []
+    try:
+        cfg = ler_nicho()
+    except Exception:  # noqa: BLE001
+        cfg = {}
     for p in _ler_postagens():
+        if p.get("ok") is True and not registro_confiavel(p, cfg):  # 46a: so o que confere de novo
+            p = {**p, "ok": False, "motivos": ["Registro não confere (arquivo alterado ou regra nova): "
+                                               "monte esta postagem de novo."]}
         quando = ""
         try:
             quando = datetime.fromisoformat(str(p.get("quando"))).strftime("%d/%m %H:%M")

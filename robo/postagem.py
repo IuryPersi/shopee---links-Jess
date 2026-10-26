@@ -85,7 +85,34 @@ def montar_postagem(link: str, preco_texto: str, cfg: dict, nome_digitado: str =
                  "conferencia": texto_do_exame(exame), "avisos": avisos, "motivos": motivos, "ok": not motivos}
     if motivos:
         return resultado
-    corpo = ["#publi · link de afiliado", f"{emoji} {nome}", f"Por {reais(preco)}"]
-    resultado["mensagem"] = "\n".join(corpo + [f"👉 {link}", "Preço pode mudar a qualquer momento."])
-    resultado["mensagem_feed"] = "\n".join(corpo + ["🔗 Link nos stories", "Preço pode mudar a qualquer momento."])
+    resultado["mensagem"], resultado["mensagem_feed"] = mensagens(emoji, nome, preco, link)
     return resultado
+
+
+def mensagens(emoji: str, nome: str, preco: float, link: str) -> tuple[str, str]:
+    """(mensagem com link, versao para o feed). A tela REMONTA com isto e so mostra o registro que
+    bater (46a rodada: um JSON adulterado com 'ok' e mensagem qualquer nao vira 'Copiar mensagem')."""
+    corpo = ["#publi · link de afiliado", f"{emoji} {nome}", f"Por {reais(preco)}"]
+    return ("\n".join(corpo + [f"👉 {link}", "Preço pode mudar a qualquer momento."]),
+            "\n".join(corpo + ["🔗 Link nos stories", "Preço pode mudar a qualquer momento."]))
+
+
+def registro_confiavel(p: dict, cfg: dict) -> bool:
+    """O registro salvo e um 'ok' de verdade: link seguro, ID de afiliado valido, nome que passa
+    nos bloqueios HOJE, preco na faixa e mensagens identicas as remontadas."""
+    from .links import _ID_AFILIADO, endereco_seguro
+    try:
+        preco, nome, link = p.get("preco"), str(p.get("nome") or ""), str(p.get("link") or "")
+        if p.get("ok") is not True or not isinstance(preco, (int, float)) or isinstance(preco, bool):
+            return False
+        if not (0.5 <= preco <= 100_000) or not endereco_seguro(link) or not nome or nome == "Produto":
+            return False
+        if not isinstance(p.get("afiliado"), str) or not _ID_AFILIADO.fullmatch(p["afiliado"]):
+            return False
+        bloqueios, combinados = cfg.get("bloqueios") or {}, cfg.get("bloqueios_combinados")
+        for n in (nome, str(p.get("nome_endereco") or ""), str(p.get("nome_digitado") or "")):
+            if n and verificar_bloqueio(n, bloqueios, combinados):
+                return False
+        return (p.get("mensagem"), p.get("mensagem_feed")) == mensagens(str(p.get("emoji") or ""), nome, preco, link)
+    except Exception:  # noqa: BLE001 - registro estranho nunca vira mensagem pronta
+        return False

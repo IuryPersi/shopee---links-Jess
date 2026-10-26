@@ -73,39 +73,112 @@ def similaridade(a: str, b: str) -> float:
     return len(ta & tb) / len(ta | tb)
 
 
+# --- bloqueio por PEDACOS do nome (45a/46a rodadas) ------------------------------------------
+# 1) separa o que o vendedor grudou: maiuscula no meio ('BicoSilicone'), letra/numero ('Mamadeira260ml')
+# 2) cada pedaco vai para o singular ('copos' -> 'copo')
+# 3) termo procurado como sequencia de pedacos inteiros OU grudado DENTRO de um mesmo pedaco
+#    ('kitmamadeira'), aceitando plural em cada palavra do termo - nunca juntando pedacos vizinhos
+#    (46a: 'Estampa Pinhas' juntado virava 'estampapinhas' e barrava como 'papinha')
+_CAMEL = re.compile(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 _LETRA_NUMERO = re.compile(r"(?<=[a-z])(?=[0-9])|(?<=[0-9])(?=[a-z])")
-_MIN_GRUDADO = 6  # termos curtos ('arma', 'vape', 'chuca') so como palavra inteira: 'armario', 'machucado'
+_MIN_GRUDADO = 6  # termo curto ('arma', 'vape', 'chuca') so como pedaco inteiro: 'armario', 'machucado'
+_LIGACAO = r"(?:de|do|da|dos|das|com|para|em)?"
+_PALAVRAS_LIGACAO = {"de", "do", "da", "dos", "das", "com", "para", "em"}
 
 
-def _raiz_bloqueio(nome: str) -> str:
-    """raiz() com letra e numero separados (45a rodada: 'Mamadeira260ml' escapava do bloqueio)."""
-    return raiz(_LETRA_NUMERO.sub(" ", normalizar(nome)))
+def _singular_bloqueio(p: str) -> str:
+    """_singular + plural em -is ('infantis' -> 'infantil', 'juvenis' -> 'juvenil'): so no bloqueio."""
+    if len(p) > 5 and p.endswith("is") and not p.endswith(("ais", "eis", "ois")):
+        return p[:-2] + "il"
+    return _singular(p)
 
 
-def _tem_bloqueio(norm: str, compacto: str, frase: str) -> bool:
-    """Palavra inteira OU grudada: 'kitmamadeira', 'MamadeiraAnticolica'. Bloquear a mais e seguro
-    (o produto so fica de fora); deixar passar NBCAL nao e."""
-    if _tem(norm, frase):
+def _sem_acento(texto: str) -> str:
+    t = unicodedata.normalize("NFKD", texto or "")
+    return "".join(c for c in t if not unicodedata.combining(c))
+
+
+def pedacos_bloqueio(nome: str, camel: bool = True) -> list[str]:
+    """Os pedacos do nome para o bloqueio: separados, minusculos, sem acento, no singular.
+    camel=False nao separa pela maiuscula (caixa misturada 'unPAPINHa' quebraria o termo)."""
+    t = _sem_acento(nome)
+    if camel:
+        t = _CAMEL.sub(" ", t)
+    t = re.sub(r"[^a-z0-9]+", " ", t.lower())
+    t = _LETRA_NUMERO.sub(" ", t)
+    return [_singular_bloqueio(p) for p in t.split()]
+
+
+_CACHE_TERMO: dict = {}
+
+
+def _regex_termo(frase: str):
+    """Termo sobre o texto dos pedacos separados por espaco: entre as palavras do termo, espaco,
+    nada (grudado) ou uma ligacao ('de', 'em'...); plural opcional em cada palavra. Termo de 6+
+    letras pode vir grudado num prefixo ('kitmamadeira', 'kitbicos ortodontico'); termo curto so
+    como palavra inteira. Nenhuma palavra do termo e partida por espaco: 'estampa pinha' nao e
+    'papinha' (46a rodada)."""
+    if frase in _CACHE_TERMO:
+        return _CACHE_TERMO[frase]
+    palavras = [p for p in raiz(frase).split() if p not in _PALAVRAS_LIGACAO]
+    padrao = None
+    if palavras:
+        sep = rf"(?: ?{_LIGACAO} ?)"
+        corpo = sep.join(re.escape(p) + r"(?:s|es)?" for p in palavras)
+        if len("".join(palavras)) >= _MIN_GRUDADO:
+            padrao = re.compile(corpo)
+        else:
+            padrao = re.compile(rf"(?<![a-z0-9]){corpo}(?![a-z])")
+    _CACHE_TERMO[frase] = padrao
+    return padrao
+
+
+def _tem_termo(pedacos: list[str], frase: str) -> bool:
+    alvo = raiz(frase).split()
+    if not alvo:
+        return False
+    n = len(alvo)
+    if any(pedacos[i:i + n] == alvo for i in range(len(pedacos) - n + 1)):
         return True
-    alvo = raiz(frase).replace(" ", "")
-    return len(alvo) >= _MIN_GRUDADO and alvo in compacto
+    padrao = _regex_termo(frase)
+    return bool(padrao) and bool(padrao.search(" ".join(pedacos)))
+
+
+def _tem_combinado(pedacos: list[str], palavra: str, contexto: list[str]) -> bool:
+    """'bico' + contexto: os dois como pedacos inteiros, ou grudados num pedaco so
+    ('bicosilicone', 'bicodemamadeira'). 'bicolor' nao e 'bico'."""
+    p = raiz(palavra)
+    ctx = [raiz(c) for c in contexto]
+    if p in pedacos and any(_tem_termo(pedacos, c) for c in contexto):
+        return True
+    for pedaco in pedacos:
+        if pedaco.startswith(p):
+            resto = re.sub(rf"^{_LIGACAO}", "", pedaco[len(p):])
+            if any(resto and _singular(resto) == c.replace(" ", "") for c in ctx):
+                return True
+    return False
 
 
 def verificar_bloqueio(nome: str, bloqueios: dict, combinados: dict | None = None) -> str | None:
-    norm = _raiz_bloqueio(nome)
-    compacto = normalizar(nome).replace(" ", "")
+    """Barra se o termo aparece em QUALQUER das duas leituras do nome (com e sem separar pela
+    maiuscula): bloquear a mais so tira o produto da tela; deixar NBCAL passar nao pode."""
+    leituras = (pedacos_bloqueio(nome), pedacos_bloqueio(nome, camel=False))
     for grupo, lista in bloqueios.items():
         if grupo.startswith("_"):
             continue
-        if any(_tem_bloqueio(norm, compacto, p) for p in lista):
+        if any(_tem_termo(pedacos, p) for pedacos in leituras for p in lista):
             return NOMES_BLOQUEIO.get(grupo, f"bloqueado: {grupo}")
     for grupo, regras in (combinados or {}).items():
         if grupo.startswith("_"):
             continue
         for regra in regras:
-            if _tem(norm, regra["palavra"]) and any(_tem(norm, c) for c in regra["com"]):
+            if any(_tem_combinado(pedacos, regra["palavra"], regra["com"]) for pedacos in leituras):
                 return NOMES_BLOQUEIO.get(grupo, f"bloqueado: {grupo}")
     return None
+
+
+def _raiz_bloqueio(nome: str) -> str:
+    return " ".join(pedacos_bloqueio(nome))
 
 
 def verificar_atencao(nome: str, atencao: dict) -> str | None:

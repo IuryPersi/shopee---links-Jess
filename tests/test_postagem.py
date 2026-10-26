@@ -115,6 +115,49 @@ class TestMontar(unittest.TestCase):
             nome = rnd.choice(colas) + rnd.choice(colas) + grafia + rnd.choice(colas) + rnd.choice(colas)
             self.assertIsNotNone(verificar_bloqueio(nome, CFG["bloqueios"], CFG.get("bloqueios_combinados")), nome)
 
+    def test_exemplos_da_46a_e_bico_grudado(self):
+        from robo.curadoria import verificar_bloqueio
+        b, comb = CFG["bloqueios"], CFG.get("bloqueios_combinados")
+        for nome in ("Kit BicoSilicone Infantil", "KitCoposDeTransicao Bebe Infantil", "copostransicao",
+                     "Fórmulas Infantis", "bicodemamadeira", "BICO SILICONE BEBE", "protetoresmamilo", "copocombico"):
+            self.assertIsNotNone(verificar_bloqueio(nome, b, comb), nome)
+        for nome in ("Body Bebe Estampa Pinhas", "Toalha Bicolor Infantil", "Lápis de Cor Infantis",
+                     "Copo Térmico Infantil", "Kit Pinhas Natal"):
+            self.assertIsNone(verificar_bloqueio(nome, b, comb), nome)
+
+    def test_propriedade_todo_termo_nbcal_do_config_em_qualquer_grafia(self):
+        import random
+        from robo.curadoria import verificar_bloqueio
+        rnd = random.Random(46)
+        b, comb = CFG["bloqueios"], CFG.get("bloqueios_combinados")
+        vizinhos = ["Kit", "Bebe", "Infantil", "260ml", "3", "Rosa", "Premium", "Anticolica", ""]
+        for termo in b["nbcal"]:
+            palavras = termo.split()
+            for _ in range(60):
+                conectores = {"de", "do", "da", "com", "em", "para"}
+                ps = [p + ("s" if rnd.random() < .3 and len(p) > 2 and p not in conectores else "") for p in palavras]
+                ps = [p.upper() if rnd.random() < .3 else (p.capitalize() if rnd.random() < .5 else p) for p in ps]
+                juncao = rnd.choice([" ", "", "-", "_"])
+                grafia = juncao.join(ps)
+                if rnd.random() < .3:  # grudado num vizinho, sem separar
+                    if len(termo.replace(" ", "")) < 6:
+                        continue  # limite de proposito: termo curto so inteiro ('chuca' x 'machucado')
+                    grafia = rnd.choice(vizinhos).lower() + grafia.lower()
+                nome = f"{rnd.choice(vizinhos)} {grafia}{rnd.choice(['', '260ml', '3un', ' '])} {rnd.choice(vizinhos)}"
+                self.assertIsNotNone(verificar_bloqueio(nome, b, comb), (termo, nome))
+
+    def test_nomes_bons_do_nicho_nao_sao_barrados(self):
+        from robo.curadoria import verificar_bloqueio
+        from robo.demo import BUSCAS_DEMO, ClienteDemo  # noqa: F401
+        b, comb = CFG["bloqueios"], CFG.get("bloqueios_combinados")
+        bons = ["Almofada de Amamentação Macia", "Body Bebê Algodão Estampa Pinhas", "Bolsa Maternidade Mochila",
+                "Toalha de Banho Bebê com Capuz", "Kit Organizador de Geladeira", "Pijama Feminino Cetim",
+                "Jogo de Espátulas de Silicone", "Mop Giratório Balde", "Sutiã de Amamentação", "Lápis Infantis",
+                "Toalha Bicolor", "Presilha Bico de Pato", "Copo Térmico Inox", "Armário Organizador",
+                "Absorvente de Seio Lavável", "Travesseiro de Amamentação", "Babador Bandana Infantil"]
+        for nome in bons:
+            self.assertIsNone(verificar_bloqueio(nome, b, comb), nome)
+
     def test_mensagem_de_produto_grudado_nao_sai(self):  # o caminho exato da 45a
         url = "https://shopee.com.br/Kit-Enxoval-Mamadeira260ml-i.55.111"
         r = montar_postagem(CURTO, "29,90", CFG, abrir=abridor(url))
@@ -257,21 +300,42 @@ class TestTelaPostagem(unittest.TestCase):
         self.assertEqual(status, 403)
         self.assertEqual(self.chamadas, [])
 
-    def test_resultado_na_tela_escapado(self):
-        postagens = [
-            {"ok": True, "emoji": "🤰", "nome": "<script>x</script>", "preco": 39.9, "link": CURTO,
-             "mensagem": "#publi\n<b>oi</b>", "mensagem_feed": "f", "avisos": ["<i>a</i>"], "quando": "2026-10-26T10:00:00"},
-            {"ok": False, "motivos": ["<img src=x onerror=alert(1)>"], "link": "javascript:alert(1)", "quando": "x"},
-            {"ok": True, "nome": "sem mensagem"}, "lixo"]
+    def _gravar(self, postagens):
         (Path(self.tmp.name) / "postagens.json").write_text(json.dumps({"versao": 2, "postagens": postagens}),
                                                             encoding="utf-8")
+
+    def test_registro_verdadeiro_aparece_pronto(self):
+        bom = montar_postagem(CURTO, "39,90", CFG, abrir=abridor(ALMOFADA))
+        self.assertTrue(bom["ok"])
+        bom["quando"] = "2026-10-26T10:00:00"
+        self._gravar([bom])
+        pagina = self.P._pagina("demo")
+        self.assertIn("Copiar mensagem</button>", pagina.split('id="postagem"')[1].split('id="conferir"')[0])
+        self.assertIn("R$ 39,90", pagina)
+        self.assertIn(f'href="{CURTO}"', pagina)
+
+    def test_registro_adulterado_nao_vira_mensagem_pronta(self):  # 46a rodada (risco)
+        bom = montar_postagem(CURTO, "39,90", CFG, abrir=abridor(ALMOFADA))
+        adulterados = [{**bom, "mensagem": bom["mensagem"] + "\nDe R$ 99,90"},          # mensagem trocada
+                       {**bom, "nome": "Kit Mamadeira", "mensagem": "x"},               # NBCAL
+                       {**bom, "afiliado": None}, {**bom, "link": "javascript:alert(1)"},
+                       {**bom, "preco": 0}, {**bom, "preco": True},
+                       {"ok": True, "nome": "<script>x</script>", "mensagem": "<b>oi</b>", "link": CURTO}]
+        for adulterado in adulterados:
+            self._gravar([adulterado])
+            secao = self.P._pagina("demo").split('id="postagem"')[1].split('id="conferir"')[0]
+            self.assertNotIn("Copiar mensagem</button>", secao, adulterado)
+            self.assertIn("Registro não confere", secao)
+            for cru in ("<script>x", "<b>oi", 'href="javascript:'):
+                self.assertNotIn(cru, secao)
+
+    def test_resultado_com_erro_escapado(self):
+        self._gravar([{"ok": False, "motivos": ["<img src=x onerror=alert(1)>"], "link": "javascript:alert(1)",
+                       "quando": "x"}, "lixo"])
         pagina = self.P._pagina("demo")
         self.assertIn('id="postagem"', pagina)
-        for cru in ("<script>x", "<b>oi", "<i>a", "<img src=x", 'href="javascript:'):
-            self.assertNotIn(cru, pagina)
-        self.assertIn("&lt;script&gt;x&lt;/script&gt;", pagina)
-        self.assertIn(f'href="{CURTO}"', pagina)
-        self.assertIn("R$ 39,90", pagina)
+        self.assertNotIn("<img src=x", pagina)
+        self.assertNotIn('href="javascript:', pagina)
 
     def test_versao_antiga_ou_arquivo_estragado_nao_aparece(self):
         (Path(self.tmp.name) / "postagens.json").write_text(json.dumps({"postagens": [{"ok": True, "nome": "VELHA",
