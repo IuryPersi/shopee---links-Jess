@@ -446,7 +446,7 @@ class TestTelaConferir(unittest.TestCase):
         self.assertEqual(self.chamadas, [])
 
     def test_pagina_abre_a_caixa_quando_volta_da_conferencia(self):
-        self.assertIn("get('aba')==='conferir'", self.P.JS)
+        self.assertIn("aba==='conferir'", self.P.JS)
         c = http.client.HTTPConnection("127.0.0.1", self.porta, timeout=5)
         c.request("GET", "/?aba=conferir")
         r = c.getresponse()

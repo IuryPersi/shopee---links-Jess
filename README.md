@@ -41,6 +41,31 @@ mesma atualização. Se a Shopee parar de responder à conferência (3 vezes
 seguidas), o robô para de conferir naquela atualização e os links seguintes
 vão sem o selo; o log avisa quantos ficaram assim.
 
+## Montar postagem (sem a Open API)
+
+Para postar enquanto a Open API não é liberada:
+
+1. Ache a promoção na Shopee (Ofertas Relâmpago, Mãe e Bebê, mais vendidos).
+2. Gere o link no [painel de afiliados](https://affiliate.shopee.com.br/) →
+   **Link personalizado**.
+3. Na tela, em **Montar postagem**, cole o link e o **preço que está vendo**.
+   Se o endereço não trouxer o nome do produto, digite o nome também. Escolha a
+   tag (já vem em maternidade) e clique em **Montar postagem**.
+4. O robô:
+   - confere o link (precisa dar ✓: endereço de produto com a marcação de
+     afiliado da Shopee);
+   - barra mamadeira, bico, chupeta e fórmula (NBCAL), falsificação e
+     proibidos;
+   - limpa o nome (sem números nem promessas do vendedor);
+   - monta a mensagem com **"Por R$ Y"**.
+5. **Copiar mensagem** (ou **Feed**) e poste. Confira o preço no app antes.
+
+O "De R$ X" não aparece aqui: ele só sai quando o histórico do robô comprova a
+queda, e isso depende da Open API.
+
+Pelo terminal:
+`py -3.12 -m robo postagem --link https://s.shopee.com.br/… --preco 29,90 [--nome …] [--tag maternidade]`.
+
 ## Conferir links gerados à mão
 
 Serve enquanto a Open API não é liberada, ou para conferir um link antes de
@@ -170,7 +195,7 @@ filtros e bloqueios.
 py -3.12 -m unittest discover -s tests
 ```
 
-Os 216 testes rodam sem internet. No computador de desenvolvimento, um gancho
+Os 231 testes rodam sem internet. No computador de desenvolvimento, um gancho
 `pre-commit` roda a suíte e barra commit com teste falhando. O histórico da auditoria externa
 (Codex), a validação real na Shopee e os riscos aceitos estão em
 [`docs/AUDITORIA.md`](docs/AUDITORIA.md).

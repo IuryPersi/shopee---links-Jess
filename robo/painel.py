@@ -22,7 +22,8 @@ from urllib.parse import parse_qs, urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from .config import RAIZ, ler_env
+from .config import RAIZ, ler_env, ler_nicho
+from .postagem import MAX_POSTAGENS, VERSAO_POSTAGEM
 from .links import (ESTADOS_EXAME, ICONES, MAX_LINKS_COLADOS, VERSAO_CONFERENCIA, endereco_seguro, links_do_texto,
                     nivel_do_exame, texto_do_exame)
 from .texto import milhar, reais
@@ -37,7 +38,7 @@ COMANDOS = {
 }
 
 _estado = {"rodando": None, "inicio": None, "saida": "", "codigo": None, "ultimo": None,
-           "qtd_links": 0, "aviso_conferir": ""}
+           "qtd_links": 0, "aviso_conferir": "", "aviso_postagem": ""}
 _trava = threading.Lock()
 LIMITE_CORPO = 64_000  # bytes do formulario do "Conferir links" (o campo aceita ate 12.000 caracteres)
 PRAZO_CORPO = 10.0  # segundos para o formulario chegar INTEIRO (40a rodada: envio lento prendia a linha)
@@ -130,7 +131,7 @@ details.conferir summary{cursor:pointer;font-weight:900;font-size:17px}
 .dica{color:var(--fraco);font-size:13px;margin:8px 0 10px}
 .dica a{color:var(--texto)}
 .form-conferir{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
-.form-conferir textarea{width:100%;background:#000;color:var(--texto);border:1px solid var(--linha);border-radius:12px;
+.form-conferir textarea,.form-conferir input,.form-conferir select{width:100%;background:#000;color:var(--texto);border:1px solid var(--linha);border-radius:12px;
 padding:10px;font:13px/1.45 ui-monospace,Consolas,monospace;resize:vertical}
 .res{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
 .res li{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;background:var(--papel2);
@@ -151,8 +152,8 @@ async function copiar(t){try{await navigator.clipboard.writeText(t);return true}
 document.querySelectorAll('[data-copiar]').forEach(b=>b.addEventListener('click',async()=>{
   await copiar(b.dataset.copiar);const antes=b.textContent;b.textContent='Copiado ✓';b.classList.add('feito');
   setTimeout(()=>{b.textContent=antes;b.classList.remove('feito')},1500)}));
-if(new URLSearchParams(location.search).get('aba')==='conferir'){
-  const c=document.getElementById('conferir');if(c){c.open=true;c.scrollIntoView()}}
+{const aba=new URLSearchParams(location.search).get('aba');
+  if(aba==='conferir'||aba==='postagem'){const c=document.getElementById(aba);if(c){c.open=true;c.scrollIntoView()}}}
 document.querySelectorAll('.chips button').forEach(ch=>ch.addEventListener('click',()=>{
   document.querySelectorAll('.chips button').forEach(x=>x.classList.remove('ativo'));ch.classList.add('ativo');
   const tag=ch.dataset.tag;document.querySelectorAll('.card').forEach(c=>{c.hidden=!!tag&&c.dataset.tag!==tag})}));
@@ -198,6 +199,70 @@ def _ler_conferencia() -> dict | None:
 
 
 _CLASSE_EXAME = {"ok": "r-ok", "aviso": "r-aviso", "erro": "r-erro", "espera": "r-aviso"}
+
+
+def _ler_postagens() -> list[dict]:
+    """As ultimas postagens montadas (gravadas por `python -m robo postagem`); so da versao atual."""
+    import json
+    try:
+        dados = json.loads((SAIDA / "postagens.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    if not isinstance(dados, dict) or dados.get("versao") != VERSAO_POSTAGEM:
+        return []
+    return [p for p in (dados.get("postagens") or []) if isinstance(p, dict)][:MAX_POSTAGENS]
+
+
+def _secao_postagem(est: dict) -> str:
+    """Caixa "Montar postagem": link gerado a mao + preco -> mensagem pronta, so com o link
+    conferido (nivel OK) e o produto fora dos bloqueios. Tudo o que vem do arquivo e escapado."""
+    e = html.escape
+    rodando = est["rodando"]
+    cfg_tags = {}
+    try:
+        cfg_tags = {k: v for k, v in (ler_nicho().get("tags") or {}).items()
+                    if not k.startswith("_") and isinstance(v, dict)}
+    except Exception:  # noqa: BLE001 - config estragada nao derruba a tela
+        cfg_tags = {}
+    opcoes = "".join(f'<option value="{e(k)}"{" selected" if k == "maternidade" else ""}>'
+                     f'{e(str(v.get("emoji", "")))} {e(str(v.get("rotulo", k)))}</option>' for k, v in cfg_tags.items())
+    cartoes = []
+    for p in _ler_postagens():
+        quando = ""
+        try:
+            quando = datetime.fromisoformat(str(p.get("quando"))).strftime("%d/%m %H:%M")
+        except ValueError:
+            pass
+        if p.get("ok") is True and isinstance(p.get("mensagem"), str):
+            avisos = "".join(f'<p class="aviso-card">⚠ {e(str(a))}</p>' for a in (p.get("avisos") or []))
+            link = str(p.get("link") or "")
+            abrir = (f'<a href="{e(link)}" target="_blank" rel="noopener noreferrer">Abrir</a>'
+                     if endereco_seguro(link) else "")
+            cartoes.append(f"""<li class="r-ok"><span class="ic">✓</span><div class="txt">
+<p><b>{e(str(p.get("emoji", "")))} {e(str(p.get("nome", "")))}</b> · {e(reais(p["preco"]) if isinstance(p.get("preco"), (int, float)) else "")}</p>
+<p class="lk">{e(quando)} · link conferido · confira o preço no app antes de postar</p>{avisos}</div>
+<div class="mini"><button type="button" data-copiar="{e(p["mensagem"])}">Copiar mensagem</button>
+<button type="button" data-copiar="{e(str(p.get("mensagem_feed", "")))}">Feed</button>{abrir}</div></li>""")
+        else:
+            motivos = "".join(f"<p>{e(str(m))}</p>" for m in (p.get("motivos") or ["não montou"]))
+            cartoes.append(f"""<li class="r-erro"><span class="ic">✗</span><div class="txt">{motivos}
+<p class="lk">{e(quando)} · {e(str(p.get("link") or ""))}</p></div><div></div></li>""")
+    andando = (f'<div class="rodando">Montando a postagem… {int(time.time() - est["inicio"])}s</div>'
+               if rodando == "postagem" else "")
+    aviso = f'<p class="aviso-card">{e(est["aviso_postagem"])}</p>' if est.get("aviso_postagem") else ""
+    trava = " disabled" if rodando else ""
+    return f"""<details class="conferir" id="postagem" open><summary>Montar postagem</summary>
+<p class="dica">Achou a promoção na Shopee? Gere o link no <a href="https://affiliate.shopee.com.br/" target="_blank"
+rel="noopener noreferrer">painel de afiliados</a> (<b>Link personalizado</b>), cole aqui com o preço que está vendo e o robô
+confere o link e monta a mensagem. Mamadeira, bico, chupeta e fórmula são barrados (NBCAL).</p>
+<form method="post" action="/postagem" class="form-conferir">
+<input name="link" required maxlength="600" placeholder="Link de afiliado: https://s.shopee.com.br/…">
+<input name="preco" required maxlength="20" inputmode="decimal" placeholder="Preço agora, ex.: 29,90">
+<input name="nome" maxlength="150" placeholder="Nome do produto (só se o link não trouxer)">
+<select name="tag">{opcoes}</select>
+<button class="atualizar"{trava}>Montar postagem</button></form>
+{aviso}{andando}{f'<ul class="res">{"".join(cartoes)}</ul>' if cartoes else ""}
+</details>"""
 
 
 def _secao_conferir(est: dict) -> str:
@@ -325,8 +390,9 @@ rel="noopener noreferrer" style="color:var(--texto)">formulário da Shopee</a> e
 <code>SHOPEE_SECRET=</code> a senha. Salve.</li>
 <li>Aqui embaixo, em <b>Mais opções</b>, clique em <b>Testar conexão com a Shopee</b>.</li></ol></div>"""
     status = (f'<div class="rodando">Buscando ofertas… {int(time.time() - est["inicio"])}s '
-              f'(pode levar uns minutos)</div>') if rodando and rodando != "conferir" else ""
-    if not rodando and est["codigo"] not in (None, 0):
+              f'(pode levar uns minutos)</div>') if rodando and rodando not in ("conferir", "postagem") else ""
+    # postagem que nao montou sai com codigo 1, mas o motivo ja aparece na propria caixa
+    if not rodando and est["codigo"] not in (None, 0) and est["ultimo"] != "postagem":
         titulo = ("A conferência dos links não deu certo." if est["ultimo"] == "conferir"
                   else "A última atualização não deu certo.")
         status = (f'<div class="aviso"><b>{titulo}</b><br>'
@@ -350,6 +416,7 @@ rel="noopener noreferrer" style="color:var(--texto)">formulário da Shopee</a> e
 <nav class="chips">{''.join(chips)}</nav>
 <main>
 {aviso}{status}
+{_secao_postagem(est)}
 {_secao_conferir(est)}
 {bloco1}
 {bloco2}
@@ -476,11 +543,65 @@ class _Handler(BaseHTTPRequestHandler):
         self._cabecalhos_seguranca()
         self.end_headers()
 
+    def _ler_formulario(self) -> dict | None:
+        """Todos os campos do formulario (x-www-form-urlencoded), com o mesmo limite e prazo total."""
+        try:
+            tamanho = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return None
+        if tamanho < 0 or tamanho > LIMITE_CORPO:
+            return None
+        corpo = self._ler_corpo(tamanho) if tamanho else b""
+        if corpo is None:
+            return None
+        return {k: v[0] for k, v in parse_qs(corpo.decode("utf-8", "replace"), keep_blank_values=True).items()}
+
+    def _postagem(self):
+        """POST /postagem: link + preco (+ nome, tag) viram `python -m robo postagem ...` (lista, sem
+        shell, um de cada vez). O link e o primeiro link valido do campo (links_do_texto)."""
+        campos = self._ler_formulario()
+        aviso = ""
+        if campos is None:
+            aviso = "Não consegui ler o formulário (grande demais ou chegou incompleto). Tente de novo."
+        else:
+            links = links_do_texto(campos.get("link", ""), limite=1)
+            preco = " ".join(campos.get("preco", "").split())[:20]
+            nome = " ".join(campos.get("nome", "").split())[:150]
+            tag = campos.get("tag", "maternidade")[:40]
+            if not links:
+                aviso = "Cole o link de afiliado (começa com https://s.shopee.com.br/…)."
+            elif not preco:
+                aviso = "Digite o preço que está na Shopee, por exemplo 29,90."
+            elif reservar("postagem"):
+                args = ["postagem", "--link", links[0], "--preco", preco, "--tag", tag]
+                if nome:
+                    args += ["--nome", nome]
+                threading.Thread(target=_executar, args=("postagem", args), daemon=True).start()
+                time.sleep(0.3)
+            else:
+                aviso = "Já tem outra ação rodando; espere terminar e tente de novo."
+        with _trava:
+            _estado["aviso_postagem"] = aviso
+        self.send_response(303)
+        self.send_header("Location", "/?aba=postagem")
+        self._cabecalhos_seguranca()
+        self.end_headers()
+
     def do_POST(self):  # noqa: N802
         if not self._origem_confiavel(exigir_origem=True):
+            # le o corpo pequeno antes de recusar: fechar com dados nao lidos vira conexao anulada no
+            # Windows e o cliente nem ve o 403 (teste intermitente em 26/10); nada do corpo e usado
+            try:
+                tamanho = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                tamanho = 0
+            if 0 < tamanho <= LIMITE_CORPO:
+                self._ler_corpo(tamanho)
             return self._responder(b"proibido", "text/plain", 403)
         if self.path == "/conferir":
             return self._conferir()
+        if self.path == "/postagem":
+            return self._postagem()
         nome = self.path.rsplit("/", 1)[-1]
         if self.path.startswith("/executar/") and nome in COMANDOS:
             if reservar(nome):

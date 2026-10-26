@@ -5,6 +5,8 @@
     python -m robo resumo       tamanho do historico de precos
     python -m robo conferir LINK [LINK...]   confere links gerados a mao no painel de afiliados
                                 (para onde levam, produto, marcacao de afiliado); sem API, sem .env
+    python -m robo postagem --link L --preco P [--nome N] [--tag T]   monta a mensagem de um
+                                produto achado a mao (link conferido + NBCAL); sem API, sem .env
 """
 from __future__ import annotations
 
@@ -212,6 +214,55 @@ def cmd_conferir(argv: list[str], abrir=None, pausa: float = 0.4) -> int:
     return 0
 
 
+def _argumentos(argv: list[str], nomes: tuple[str, ...]) -> dict | None:
+    """--chave valor (cada chave no maximo uma vez). None se vier algo fora disso."""
+    vals: dict = {}
+    i = 0
+    while i < len(argv):
+        chave = argv[i]
+        if not chave.startswith("--") or chave[2:] not in nomes or chave[2:] in vals or i + 1 >= len(argv):
+            return None
+        vals[chave[2:]] = argv[i + 1]
+        i += 2
+    return vals
+
+
+def cmd_postagem(argv: list[str], abrir=None) -> int:
+    """python -m robo postagem --link L --preco P [--nome N] [--tag T]
+    Monta a mensagem de um produto achado a mao (sem API). Grava saida/postagens.json (as ultimas
+    20) para a tela 'Montar postagem'. Saida: 0 mensagem pronta | 1 nao montou (motivo na tela)."""
+    import json
+    from .postagem import MAX_POSTAGENS, VERSAO_POSTAGEM, montar_postagem
+    args = _argumentos(argv, ("link", "preco", "nome", "tag"))
+    if not args or not args.get("link") or "preco" not in args:
+        print("Uso: python -m robo postagem --link https://s.shopee.com.br/... --preco 29,90 [--nome NOME] [--tag maternidade]")
+        return 1
+    r = montar_postagem(args["link"].strip(), args["preco"], ler_nicho(), nome_digitado=args.get("nome", ""),
+                        tag=args.get("tag", "maternidade"), abrir=abrir)
+    r["quando"] = datetime.now().isoformat(timespec="seconds")
+    destino = PASTA_SAIDA / "postagens.json"
+    try:
+        antigas = json.loads(destino.read_text(encoding="utf-8"))
+        lista = antigas.get("postagens", []) if antigas.get("versao") == VERSAO_POSTAGEM else []
+    except (OSError, ValueError, AttributeError):
+        lista = []
+    lista = [r] + [p for p in lista if isinstance(p, dict)][: MAX_POSTAGENS - 1]
+    PASTA_SAIDA.mkdir(parents=True, exist_ok=True)
+    temporario = destino.with_suffix(".json.tmp")
+    temporario.write_text(json.dumps({"versao": VERSAO_POSTAGEM, "postagens": lista}, ensure_ascii=False, indent=1),
+                          encoding="utf-8")
+    os.replace(temporario, destino)
+    if r["ok"]:
+        print("MENSAGEM PRONTA:\n" + r["mensagem"])
+        for aviso in r["avisos"]:
+            print(f"ATENCAO: {aviso}")
+        return 0
+    print("NAO MONTEI A MENSAGEM:")
+    for motivo in r["motivos"]:
+        print(f"  - {motivo}")
+    return 1
+
+
 def cmd_resumo() -> int:
     caminho = PASTA_DADOS / "robo.db"
     if not caminho.exists():
@@ -235,6 +286,8 @@ def main(argv: list[str]) -> int:
     cmd = argv[0] if argv else "rodar"
     if cmd == "conferir":
         return cmd_conferir(argv[1:])
+    if cmd == "postagem":
+        return cmd_postagem(argv[1:])
     comandos = {"rodar": cmd_rodar, "diagnostico": cmd_diagnostico, "demo": cmd_demo, "resumo": cmd_resumo}
     if cmd not in comandos:
         print(__doc__)
