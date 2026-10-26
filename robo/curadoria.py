@@ -300,9 +300,9 @@ _ACESSORIO_LIMPEZA = re.compile(  # ate 3 palavras no meio: 'escova de limpeza p
     # no meio ('Kit Escova NUK Mamadeira') tambem nao e descricao de escova
     r"(?: (?!(?:com|c|mais|e|kit|acompanha|acompanham|inclui|incluindo|incluso|inclusa|contem|contendo|"
     r"brinde|junto|tambem|nuk|lillo|avent|mam|kuka|chicco|tommee|tippee|pigeon|evenflo|munchkin|nuby|buba|"
-    r"medela|comtec|clingo)(?: |$))"
+    r"medela|comtec|clingo|mucilon|aptamil|nestogeno|enfamil|similac|milupa|nestle)(?: |$))"
     r"(?![a-z]*(?:mamadeir|chupet|chuquinh|bico|biquinh|mamil|seio|copo|caneca|leite|formula|papinh))"
-    r"[a-z0-9]+){0,4} ?mamadeir[a-z]*"
+    r"[a-z]+){0,4} ?mamadeir[a-z]*"  # 61a: sem numero no meio ('Kit Escova 2 Mamadeiras' e kit)
     r"(?: ?(?:e|e de|e para) ?bi(?:co|cos|quinho|quinhos))?")  # '+' vira 'com': '+ bico' fica de fora
 
 

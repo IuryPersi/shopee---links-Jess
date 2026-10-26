@@ -236,12 +236,13 @@ class TestMontar(unittest.TestCase):
                      "Kit Escova Chupeta Mamadeira Bebe", "Kit Escova acompanha Mamadeira",  # 58a
                      "Kit Escova para Mamadeira + Bico Silicone Bebe", "Escova Bico Mamadeira Silicone Bebe",  # 59a
                      "Kit Escova c/ Mamadeira Bebe", "Kit Escova incluindo Mamadeira", "Kit Escova NUK Mamadeira Bebe",
-                     "Escova de Limpeza para Mamadeira com Bico Silicone Bebe"):  # 60a: na duvida, barrar
+                     "Escova de Limpeza para Mamadeira com Bico Silicone Bebe",  # 60a: na duvida, barrar
+                     "Kit Escova 2 Mamadeiras Bebê", "Escova 2 em 1 para Mamadeiras", "Kit Escova Mucilon Mamadeira"):  # 61a
             self.assertIsNotNone(verificar_bloqueio(nome, b, comb), nome)
         for nome in ("Escova de Mamadeira", "Escova para Mamadeira e Bico", "Kit Escova de Limpeza para Mamadeiras e Bico",
                      "Escova Giratória para Mamadeiras", "Secador de Mamadeira e Bico",
                      "Escova de Limpeza Mamadeira Bebê", "Escova Mamadeira e Bico Silicone Bebê",  # 56a
-                     "Escova Dupla para Mamadeira e Bico Bebê", "Escova 2 em 1 para Mamadeiras",  # 57a
+                     "Escova Dupla para Mamadeira e Bico Bebê",  # 57a
                      "Escova para Mamadeira & Bico Silicone Bebe",  # 58a
                      "Escova Flexivel para Mamadeira Bebe", "Escova de Limpeza Multiuso para Mamadeira Bebe"):  # 59a
             self.assertIsNone(verificar_bloqueio(nome, b, comb), nome)

@@ -39,6 +39,28 @@ Auditor: Codex CLI (OpenAI), em modo somente leitura, adversarial. Mais 4 analis
 | 42 | Mesma área | **RESSALVAS**, nenhum problema novo. Riscos: suíte e teste pingado não executados pelo auditor (sem Python no ambiente dele); falta o link de produto real da conta. |
 | 43 | Abertura do painel (PAINEL.bat, 20/10) | **APROVADO**, nenhum problema novo. Navegador só abre com o painel escutando; porta exclusiva no Windows (o padrão deixava dois painéis na mesma porta); segundo clique só reabre a tela. Riscos aceitos: o "painel já aberto" é reconhecido pelo texto da página (só importa se outro programa ocupar a porta 8031 deste computador). |
 
+## Montar postagem (26/10/2026) — rodadas 44 a 61
+
+Modo manual enquanto a Open API não é liberada: a pessoa cola o link gerado no
+Link personalizado e o preço, e o robô monta a mensagem conferida.
+
+| Rodadas | O que o auditor achou | O que mudou |
+|---|---|---|
+| 44–47 | NBCAL escapava por corte do nome, palavra grudada, diminutivo ("Chupetinha"), plural grudado ("bicoslatex") | bloqueio lê o nome inteiro, em pedaços (separa maiúscula e número, singular), radical dos termos, registro salvo assinado (HMAC local) |
+| 48–53 | títulos REAIS de loja escapavam (Avent, Lillo, NUK, protetor de seios, copo/caneca de treinamento) ou eram barrados à toa (bico de pato, porta-mamadeira, roupa) | regras por combinação (bico/protetor/copo + contexto, com exceções), trava por raiz e por marca no manual, confirmação humana obrigatória |
+| 54 | copo de transição real sem palavra de bebê passava na tag cozinha | **confirmação obrigatória em toda tag** |
+| 55–61 | **nenhum problema bloqueante** (7 rodadas seguidas); só casos de fronteira de escova de mamadeira na rodada automática | política explícita **"na dúvida, barrar"** nos acessórios |
+
+**Lição registrada (de novo):** nenhuma lista de palavras cobre todo título da
+Shopee. O que fechou foi a combinação: travas automáticas no máximo do possível,
+mais a **confirmação humana** em toda postagem manual, que nunca libera o que as
+travas barraram.
+
+**Riscos aceitos:** algumas escovas e acessórios legítimos de mamadeira ficam de
+fora da rodada automática (lado seguro). A confirmação é uma declaração da pessoa,
+não uma prova do conteúdo do produto. O "link conferido" prova o redirecionamento
+e a marcação de afiliado, não a existência do produto.
+
 ## Validação real na Shopee (19/10/2026)
 
 Feita com o próprio código do robô (`robo/links.py`), sem a conta da afiliada:
