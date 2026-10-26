@@ -179,6 +179,7 @@ def menciona_sem_contexto(nome: str, combinados: dict | None) -> str | None:
             p = raiz(regra["palavra"])
             forma = _FORMAS_COMBINADO.get(p) or re.compile(rf"{re.escape(p)}(?:s|es)?")
             for pedacos in (pedacos_bloqueio(nome), pedacos_bloqueio(nome, camel=False)):
+                pedacos = _sem_acessorio_limpeza(pedacos)  # 'escova de mamadeira e bico' nao e bico
                 if any(_tem_termo(pedacos, x) for x in regra.get("exceto") or []):
                     continue
                 for pedaco in pedacos:
@@ -211,7 +212,8 @@ def _radicais(bloqueios: dict) -> list[str]:
 def verificar_bloqueio(nome: str, bloqueios: dict, combinados: dict | None = None) -> str | None:
     """Barra se o termo aparece em QUALQUER das duas leituras do nome (com e sem separar pela
     maiuscula): bloquear a mais so tira o produto da tela; deixar NBCAL passar nao pode."""
-    brutas = (pedacos_bloqueio(nome), pedacos_bloqueio(nome, camel=False))
+    # combinado: tira so o acessorio de limpeza ("escova de mamadeira e bico"); porta/suporte ficam
+    brutas = tuple(_sem_acessorio_limpeza(p) for p in (pedacos_bloqueio(nome), pedacos_bloqueio(nome, camel=False)))
     leituras = tuple(_sem_acessorio(p) for p in brutas)  # termos simples: acessorio de mamadeira sai
     for grupo, lista in bloqueios.items():
         if grupo.startswith("_"):
@@ -240,8 +242,20 @@ _ACESSORIO = re.compile(
     r"(?: ?(?:de|da|do|para|p))? ?mamadeir[a-z]*")
 
 
+# acessorio de LIMPEZA/SECAGEM "de mamadeira e bico" e um produto so (50a rodada: 'Escova para
+# Mamadeira e Bico' e escova). Porta/suporte nao entram aqui: 'porta mamadeira com bico' segue barrado.
+_ACESSORIO_LIMPEZA = re.compile(
+    r"(?:escova|escovinha|secador|secadora|escorredor|esterilizador|cesto)"
+    r"(?: ?(?:de|da|do|para|p))? ?mamadeir[a-z]*(?: ?(?:e|e de|e para|com) ?bi(?:co|cos|quinho|quinhos))?")
+
+
 def _sem_acessorio(pedacos: list[str]) -> list[str]:
-    return _ACESSORIO.sub(" ", " ".join(pedacos)).split()
+    texto = _ACESSORIO_LIMPEZA.sub(" ", " ".join(pedacos))
+    return _ACESSORIO.sub(" ", texto).split()
+
+
+def _sem_acessorio_limpeza(pedacos: list[str]) -> list[str]:
+    return _ACESSORIO_LIMPEZA.sub(" ", " ".join(pedacos)).split()
 
 
 def _raiz_bloqueio(nome: str) -> str:

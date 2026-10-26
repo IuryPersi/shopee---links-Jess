@@ -163,6 +163,19 @@ class TestMontar(unittest.TestCase):
         url = "https://shopee.com.br/Kit-2-Bicos-Philips-Avent-Petala-Natural-Response-Fluxo-2-Lento-i.55.111"
         self.assertFalse(montar_postagem(CURTO, "29,90", CFG, abrir=abridor(url))["ok"])
 
+    def test_exemplos_da_50a(self):
+        from robo.curadoria import verificar_bloqueio
+        b, comb = CFG["bloqueios"], CFG.get("bloqueios_combinados")
+        for nome in ("Protetor de Seios com 2 Unidades Tam2 - MAM", "Protetores de Seio Silicone",
+                     "ProtetorDeSeio", "Escova de Mamadeira com Bico de Silicone Bebe Mamadeira Inclusa"):
+            self.assertIsNotNone(verificar_bloqueio(nome, b, comb), nome)
+        for nome in ("Escova para Mamadeira e Bico Limpeza", "Escova de Mamadeiras e Bicos", "Secador de Mamadeira e Bico",
+                     "Absorvente de Seio Lavável"):
+            self.assertIsNone(verificar_bloqueio(nome, b, comb), nome)
+        r = montar_postagem(CURTO, "29,90", CFG, nome_digitado="Protetor de Seios com 2 Unidades Tam2 - MAM",
+                            abrir=abridor(SEM_NOME))
+        self.assertFalse(r["ok"])
+
     def test_trava_rigida_do_manual_barra_qualquer_bico(self):  # 49a: sem contexto tambem
         for nome in ("Kit 2 Bicos Tamanho M", "Biquinho Universal", "KitBicos"):
             r = montar_postagem(CURTO, "19,90", CFG, nome_digitado=nome, abrir=abridor(SEM_NOME))
