@@ -188,6 +188,23 @@ class TestMontar(unittest.TestCase):
                      "Copo Térmico Inox 500ml", "Protetor de Colchão Impermeável", "Absorvente de Seio Lavável"):
             self.assertIsNone(verificar_bloqueio(nome, b, comb), nome)
 
+    def test_exemplos_da_53a(self):
+        from robo.curadoria import verificar_bloqueio
+        b, comb = CFG["bloqueios"], CFG.get("bloqueios_combinados")
+        caneca = "Caneca de Treinamento Infantil com Alças e Tampa Pasútil– 280 ml ou 330 ml"
+        for tag in ("cozinha", "casa", "feminino", "limpeza", "bebe", "maternidade"):
+            for nome in (caneca, "Copo Infantil Kids Dinossauro", "Garrafinha Bebê Squeeze"):
+                r = montar_postagem(CURTO, "29,90", CFG, nome_digitado=nome, tag=tag, abrir=abridor(SEM_NOME),
+                                    confirmado=True)
+                self.assertFalse(r["ok"], (nome, tag))
+        self.assertIsNone(verificar_bloqueio("Protetor de Seios Adesivo Silicone Reutilizável Miniso", b, comb))
+        for nome in ("Protetor de Mamilo Silicone Amamentação", "Protetor de Seios para Amamentação 2 Unidades MAM",
+                     "Protetor Mamilar Silicone"):
+            self.assertIsNotNone(verificar_bloqueio(nome, b, comb), nome)
+        r = montar_postagem(CURTO, "29,90", CFG, nome_digitado="Copo Térmico Inox Café", tag="cozinha",
+                            abrir=abridor(SEM_NOME))
+        self.assertFalse(any(m.startswith("Produto:") for m in r["motivos"]), r["motivos"])
+
     def test_bebe_e_maternidade_exigem_confirmacao(self):  # 52a: a ultima camada e a pessoa
         for tag in ("bebe", "maternidade"):
             r = montar_postagem(CURTO, "39,90", CFG, tag=tag, abrir=abridor(ALMOFADA))

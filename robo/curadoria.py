@@ -200,7 +200,7 @@ _RAIZES_ALIMENTACAO = re.compile(  # nas tags bebe e maternidade
 # em QUALQUER tag do manual (52a rodada: escolher 'cozinha' desligava a trava): marcas de
 # alimentacao infantil e palavras que so existem nesse tipo de produto
 _RAIZES_ALIMENTACAO_TODA_TAG = re.compile(
-    r"mamadeir|chupet|chuquinh|mamil|antivazament|aprendiz|transica|trainer|papinh|sippy|"
+    r"mamadeir|chupet|chuquinh|mamil|antivazament|aprendiz|transica|trainer|treinament|papinh|sippy|"
     r"^nuk$|^lillo$|^avent$|^mam$|^kuka$|^chicco$|^tommee$|^tippee$|^pigeon$|^evenflo$|^munchkin$|"
     r"^nuby$|^buba$|^medela$|^comtec$|^nestogeno$|^aptamil$|^enfamil$|^similac$|^milupa$|^mucilon$")
 _ACESSORIOS_PERMITIDOS_MANUAL = re.compile(
@@ -222,7 +222,14 @@ def raiz_de_alimentacao(nome: str, combinados: dict | None = None, toda_tag: boo
             m = raizes.search(pedaco)
             if m and not (excecao and m.group(0).startswith("bi")):  # excecao so livra o 'bico'
                 return m.group(0)
+        # 53a rodada: copo/caneca de crianca em qualquer tag ('Caneca ... Infantil' na tag cozinha)
+        if toda_tag and _COPO.search(texto) and _CRIANCA.search(texto):
+            return "copo/caneca infantil"
     return None
+
+
+_COPO = re.compile(r"(?:^| )\S*(?:copo|caneca|garrafinha|squeeze)")
+_CRIANCA = re.compile(r"(?:^| )\S*(?:infantil|infantis|bebe|baby|kids|kid|crianca|menino|menina|toddler)")
 
 
 # plural e diminutivo das palavras das regras combinadas
