@@ -102,7 +102,7 @@ def pedacos_bloqueio(nome: str, camel: bool = True) -> list[str]:
     """Os pedacos do nome para o bloqueio: separados, minusculos, sem acento, no singular.
     camel=False nao separa pela maiuscula (caixa misturada 'unPAPINHa' quebraria o termo)."""
     # 57a/59a: '+' junta OUTRO item ('Escova + Mamadeira', 'Escova para Mamadeira + Bico'); '&' e 'e'
-    t = re.sub(r"\+", " com ", _sem_acento(nome)).replace("&", " e ")
+    t = re.sub(r"\+|\b[cC]/", " com ", _sem_acento(nome)).replace("&", " e ")  # 60a: 'c/' = com
     if camel:
         t = _CAMEL.sub(" ", t)
     t = re.sub(r"[^a-z0-9]+", " ", t.lower())
@@ -296,7 +296,11 @@ _ACESSORIO_LIMPEZA = re.compile(  # ate 3 palavras no meio: 'escova de limpeza p
     # palavra' deixava passar 'Kit Escova Chupeta Mamadeira'); '+' e '&' viram 'com' em pedacos_bloqueio
     # 59a: qualquer palavra que DESCREVE a escova ('flexivel', 'multiuso'), menos as que juntam OUTRO
     # produto (com, mais, e, kit, acompanha, inclui...) e as de alimentacao infantil (chupeta, bico...)
-    r"(?: (?!(?:com|mais|e|kit|acompanha|acompanham|inclui|incluso|inclusa|brinde|junto)(?: |$))"
+    # 60a: na duvida, barrar - 'c'/'incluindo'/'contem' juntam item; marca de alimentacao infantil
+    # no meio ('Kit Escova NUK Mamadeira') tambem nao e descricao de escova
+    r"(?: (?!(?:com|c|mais|e|kit|acompanha|acompanham|inclui|incluindo|incluso|inclusa|contem|contendo|"
+    r"brinde|junto|tambem|nuk|lillo|avent|mam|kuka|chicco|tommee|tippee|pigeon|evenflo|munchkin|nuby|buba|"
+    r"medela|comtec|clingo)(?: |$))"
     r"(?![a-z]*(?:mamadeir|chupet|chuquinh|bico|biquinh|mamil|seio|copo|caneca|leite|formula|papinh))"
     r"[a-z0-9]+){0,4} ?mamadeir[a-z]*"
     r"(?: ?(?:e|e de|e para) ?bi(?:co|cos|quinho|quinhos))?")  # '+' vira 'com': '+ bico' fica de fora
