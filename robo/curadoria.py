@@ -101,7 +101,8 @@ def _sem_acento(texto: str) -> str:
 def pedacos_bloqueio(nome: str, camel: bool = True) -> list[str]:
     """Os pedacos do nome para o bloqueio: separados, minusculos, sem acento, no singular.
     camel=False nao separa pela maiuscula (caixa misturada 'unPAPINHa' quebraria o termo)."""
-    t = re.sub(r"[+&]", " com ", _sem_acento(nome))  # 57a: 'Escova + Mamadeira' e kit com mamadeira
+    # 57a/59a: '+' junta OUTRO item ('Escova + Mamadeira', 'Escova para Mamadeira + Bico'); '&' e 'e'
+    t = re.sub(r"\+", " com ", _sem_acento(nome)).replace("&", " e ")
     if camel:
         t = _CAMEL.sub(" ", t)
     t = re.sub(r"[^a-z0-9]+", " ", t.lower())
@@ -293,10 +294,12 @@ _ACESSORIO_LIMPEZA = re.compile(  # ate 3 palavras no meio: 'escova de limpeza p
     # 55a rodada: 'com' NAO conta - 'escova COM mamadeira' e kit que traz a mamadeira junto
     # ate 4 palavras do meio, de uma lista FECHADA de descricao de escova (58a rodada: 'qualquer
     # palavra' deixava passar 'Kit Escova Chupeta Mamadeira'); '+' e '&' viram 'com' em pedacos_bloqueio
-    r"(?: (?:de|da|do|para|p|limpeza|limpar|lavar|secar|higienizar|giratoria|rotativa|dupla|duplo|"
-    r"macia|grande|pequena|longa|cabo|silicone|nylon|esponja|bambu|madeira|plastico|eletrica|"
-    r"360|2|3|em|1|azul|rosa|verde|branca|cinza|amarela|lilas|bebe|infantil)){0,4} ?mamadeir[a-z]*"
-    r"(?: ?(?:e|e de|e para|com) ?bi(?:co|cos|quinho|quinhos))?")
+    # 59a: qualquer palavra que DESCREVE a escova ('flexivel', 'multiuso'), menos as que juntam OUTRO
+    # produto (com, mais, e, kit, acompanha, inclui...) e as de alimentacao infantil (chupeta, bico...)
+    r"(?: (?!(?:com|mais|e|kit|acompanha|acompanham|inclui|incluso|inclusa|brinde|junto)(?: |$))"
+    r"(?![a-z]*(?:mamadeir|chupet|chuquinh|bico|biquinh|mamil|seio|copo|caneca|leite|formula|papinh))"
+    r"[a-z0-9]+){0,4} ?mamadeir[a-z]*"
+    r"(?: ?(?:e|e de|e para) ?bi(?:co|cos|quinho|quinhos))?")  # '+' vira 'com': '+ bico' fica de fora
 
 
 def _sem_acessorio(pedacos: list[str]) -> list[str]:
