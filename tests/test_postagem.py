@@ -152,6 +152,25 @@ class TestMontar(unittest.TestCase):
                      "Toalha Bicolor Infantil", "Saco de Confeitar com Bico de Silicone"):
             self.assertIsNone(verificar_bloqueio(nome, b, comb), nome)
 
+    def test_exemplos_da_49a(self):
+        from robo.curadoria import verificar_bloqueio
+        b, comb = CFG["bloqueios"], CFG.get("bloqueios_combinados")
+        avent = "Kit 2 Bicos Philips Avent Pétala Natural Response Fluxo 2 Lento"
+        for nome in (avent, "Kit Bolsa Térmica Porta Mamadeira com Bico", "Bico NUK Tamanho 1", "Bicos Fluxo Lento"):
+            self.assertIsNotNone(verificar_bloqueio(nome, b, comb), nome)
+        for nome in ("Presilha Bico de Pato para Bebê", "Escorredor de Mamadeiras Bebê", "Cesto para Mamadeiras"):
+            self.assertIsNone(verificar_bloqueio(nome, b, comb), nome)
+        url = "https://shopee.com.br/Kit-2-Bicos-Philips-Avent-Petala-Natural-Response-Fluxo-2-Lento-i.55.111"
+        self.assertFalse(montar_postagem(CURTO, "29,90", CFG, abrir=abridor(url))["ok"])
+
+    def test_trava_rigida_do_manual_barra_qualquer_bico(self):  # 49a: sem contexto tambem
+        for nome in ("Kit 2 Bicos Tamanho M", "Biquinho Universal", "KitBicos"):
+            r = montar_postagem(CURTO, "19,90", CFG, nome_digitado=nome, abrir=abridor(SEM_NOME))
+            self.assertFalse(r["ok"], nome)
+        for nome in ("Presilha Bico de Pato Bebê", "Toalha Bicolor Bebê", "Kit Bicos de Confeitar"):
+            r = montar_postagem(CURTO, "19,90", CFG, nome_digitado=nome, abrir=abridor(SEM_NOME))
+            self.assertFalse(any("NBCAL" in m for m in r["motivos"]), (nome, r["motivos"]))
+
     def test_propriedade_diminutivo_e_aumentativo(self):
         from robo.curadoria import verificar_bloqueio
         b, comb = CFG["bloqueios"], CFG.get("bloqueios_combinados")
