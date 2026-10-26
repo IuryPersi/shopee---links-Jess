@@ -176,6 +176,32 @@ class TestMontar(unittest.TestCase):
                             abrir=abridor(SEM_NOME))
         self.assertFalse(r["ok"])
 
+    def test_exemplos_da_51a(self):
+        from robo.curadoria import verificar_bloqueio
+        b, comb = CFG["bloqueios"], CFG.get("bloqueios_combinados")
+        for nome in ("Protetor de Silicone para Seios 2 peças Multikids Baby - BB191",
+                     "Copo Trainer 220 ml Copo de Treinamento do Bebê MAM", "Protetor Mamilo Silicone"):
+            self.assertIsNotNone(verificar_bloqueio(nome, b, comb), nome)
+            r = montar_postagem(CURTO, "29,90", CFG, nome_digitado=nome, abrir=abridor(SEM_NOME))
+            self.assertFalse(r["ok"], nome)
+        for nome in ("Kit Escova de Limpeza para Mamadeiras e Bico 2 em 1 nas cores Azul / Vermelha - Buba",
+                     "Copo Térmico Inox 500ml", "Protetor de Colchão Impermeável", "Absorvente de Seio Lavável"):
+            self.assertIsNone(verificar_bloqueio(nome, b, comb), nome)
+
+    def test_trava_por_raiz_no_manual_de_bebe_e_maternidade(self):  # 51a
+        for nome in ("Copo Infantil Alça Rosa", "Kit Alimentador Fruta", "Mingau Pronto", "Leite Infantil",
+                     "Conchas Seio Silicone", "Caneca Transição Bebê"):
+            for tag in ("bebe", "maternidade"):
+                r = montar_postagem(CURTO, "19,90", CFG, nome_digitado=nome, tag=tag, abrir=abridor(SEM_NOME))
+                self.assertFalse(r["ok"], (nome, tag))
+        for nome in ("Almofada de Amamentação Macia", "Absorvente de Seio Lavável", "Body Bebê Algodão",
+                     "Bolsa Maternidade Mochila", "Toalha de Banho Bebê", "Escova de Mamadeira Limpeza"):
+            r = montar_postagem(CURTO, "19,90", CFG, nome_digitado=nome, tag="bebe", abrir=abridor(SEM_NOME))
+            self.assertFalse(any("NBCAL" in m for m in r["motivos"]), (nome, r["motivos"]))
+        # fora de bebe/maternidade a trava por raiz nao vale (copo termico de cozinha)
+        r = montar_postagem(CURTO, "19,90", CFG, nome_digitado="Copo Térmico Inox", tag="cozinha", abrir=abridor(SEM_NOME))
+        self.assertFalse(any("NBCAL" in m for m in r["motivos"]), r["motivos"])
+
     def test_trava_rigida_do_manual_barra_qualquer_bico(self):  # 49a: sem contexto tambem
         for nome in ("Kit 2 Bicos Tamanho M", "Biquinho Universal", "KitBicos"):
             r = montar_postagem(CURTO, "19,90", CFG, nome_digitado=nome, abrir=abridor(SEM_NOME))

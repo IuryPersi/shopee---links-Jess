@@ -109,7 +109,9 @@
   "bloqueios_combinados": {
     "_comentario": "Bloqueia quando a palavra aparece junto de qualquer uma do contexto (ex.: 'bico' + 'bebe'). Evita bloquear 'presilha bico de pato' de cabelo.",
     "nbcal": [
-      {"palavra": "bico", "com": ["bebe", "mamadeira", "silicone", "ortodontico", "infantil", "recem nascido", "rn", "latex", "fluxo", "petala", "anticolica", "colica", "mamar", "lactente", "avent", "philips avent", "nuk", "lillo", "kuka", "chicco", "mam", "tommee tippee", "dr brown", "pigeon", "evenflo", "medela", "comtec"], "exceto": ["confeitar", "confeitaria", "confeiteiro", "bolo", "torta", "chantilly", "glace", "decorar doce", "manga de confeitar", "saco de confeitar", "bico de pato", "presilha", "piranha de cabelo", "tiara", "laco de cabelo"]}
+      {"palavra": "protetor", "com": ["seio", "mamilo", "mamilar", "mama"], "exceto": ["absorvente"]},
+      {"palavra": "copo", "com": ["treinamento", "trainer", "transicao", "bico", "aprendizagem", "antivazamento bebe"]},
+      {"palavra": "bico", "rigido_no_manual": true, "com": ["bebe", "mamadeira", "silicone", "ortodontico", "infantil", "recem nascido", "rn", "latex", "fluxo", "petala", "anticolica", "colica", "mamar", "lactente", "avent", "philips avent", "nuk", "lillo", "kuka", "chicco", "mam", "tommee tippee", "dr brown", "pigeon", "evenflo", "medela", "comtec"], "exceto": ["confeitar", "confeitaria", "confeiteiro", "bolo", "torta", "chantilly", "glace", "decorar doce", "manga de confeitar", "saco de confeitar", "bico de pato", "presilha", "piranha de cabelo", "tiara", "laco de cabelo"]}
     ]
   },
 

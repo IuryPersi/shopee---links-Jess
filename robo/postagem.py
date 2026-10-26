@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import re
 
-from .curadoria import menciona_sem_contexto, verificar_atencao, verificar_bloqueio
+from .curadoria import menciona_sem_contexto, raiz_de_alimentacao, verificar_atencao, verificar_bloqueio
 from .links import examinar_link, nivel_do_exame, texto_do_exame
 from .texto import nome_curto, reais
 
@@ -70,6 +70,11 @@ def montar_postagem(link: str, preco_texto: str, cfg: dict, nome_digitado: str =
         if candidato:
             bloqueio = (verificar_bloqueio(candidato, bloqueios, combinados)
                         or menciona_sem_contexto(candidato, combinados))  # 49a: trava rigida no manual
+            if not bloqueio and tag in ("bebe", "maternidade"):  # 51a: trava por raiz no manual
+                raiz_achada = raiz_de_alimentacao(candidato, combinados)
+                if raiz_achada:
+                    bloqueio = (f"item de alimentação infantil ('{raiz_achada}') não pode ser divulgado com "
+                                "desconto (NBCAL); escolha outro produto")
             if bloqueio:
                 motivos.append(f"Produto: {bloqueio}.")
                 break
@@ -154,6 +159,8 @@ def registro_confiavel(p: dict, cfg: dict) -> bool:
         bloqueios, combinados = cfg.get("bloqueios") or {}, cfg.get("bloqueios_combinados")
         for n in (nome, str(p.get("nome_endereco") or ""), str(p.get("nome_digitado") or "")):
             if n and (verificar_bloqueio(n, bloqueios, combinados) or menciona_sem_contexto(n, combinados)):
+                return False
+            if n and p.get("tag") in ("bebe", "maternidade") and raiz_de_alimentacao(n, combinados):
                 return False
         return (p.get("mensagem"), p.get("mensagem_feed")) == mensagens(str(p.get("emoji") or ""), nome, preco, link)
     except Exception:  # noqa: BLE001 - registro estranho nunca vira mensagem pronta

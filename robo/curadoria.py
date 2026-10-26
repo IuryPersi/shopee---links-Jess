@@ -176,6 +176,8 @@ def menciona_sem_contexto(nome: str, combinados: dict | None) -> str | None:
         if grupo.startswith("_"):
             continue
         for regra in regras:
+            if not regra.get("rigido_no_manual"):  # so 'bico' (protetor/copo sozinhos sao produtos comuns)
+                continue
             p = raiz(regra["palavra"])
             forma = _FORMAS_COMBINADO.get(p) or re.compile(rf"{re.escape(p)}(?:s|es)?")
             for pedacos in (pedacos_bloqueio(nome), pedacos_bloqueio(nome, camel=False)):
@@ -185,6 +187,32 @@ def menciona_sem_contexto(nome: str, combinados: dict | None) -> str | None:
                 for pedaco in pedacos:
                     if any(not pedaco[m.end():].startswith("lor") for m in forma.finditer(pedaco)):
                         return NOMES_BLOQUEIO.get(grupo, f"bloqueado: {grupo}")
+    return None
+
+
+# Trava por RAIZ do "Montar postagem" nas tags de bebe/maternidade (51a rodada: cada rodada achava
+# um titulo real novo; lista de termos nao fecha). Qualquer pedaco com uma destas raizes barra; os
+# acessorios conhecidos saem antes. Bloquear a mais no manual so faz escolher outro produto.
+_RAIZES_ALIMENTACAO = re.compile(
+    r"mamadeir|chupet|chuquinh|^chucas?$|bi(?:co|cos|quinho|quinhos)(?!lor)|mamil|seio|^copos?$|copo|"
+    r"transica|trainer|treinament|formula|^leites?$|leite|papinh|alimentador|mingau|^mama$|amament?ador")
+_ACESSORIOS_PERMITIDOS_MANUAL = re.compile(
+    r"absorvente(?: ?(?:de|para|p))? ?seio[a-z]*|sutia[a-z]*(?: ?(?:de|para))? ?amamentacao|"
+    r"almofada(?: ?(?:de|para))? ?amamentacao|travesseiro(?: ?(?:de|para))? ?amamentacao")
+
+
+def raiz_de_alimentacao(nome: str, combinados: dict | None = None) -> str | None:
+    """A raiz de alimentacao infantil que aparece no nome (para o aviso), ou None. As excecoes das
+    regras combinadas valem aqui tambem ('presilha bico de pato', confeitaria)."""
+    excecoes = [x for regras in (combinados or {}).values() if isinstance(regras, list)
+                for regra in regras for x in regra.get("exceto") or []]
+    for pedacos in (pedacos_bloqueio(nome), pedacos_bloqueio(nome, camel=False)):
+        excecao = any(_tem_termo(pedacos, x) for x in excecoes)
+        texto = _ACESSORIOS_PERMITIDOS_MANUAL.sub(" ", " ".join(_sem_acessorio_limpeza(pedacos)))
+        for pedaco in texto.split():
+            m = _RAIZES_ALIMENTACAO.search(pedaco)
+            if m and not (excecao and m.group(0).startswith("bi")):  # excecao so livra o 'bico'
+                return m.group(0)
     return None
 
 
@@ -244,9 +272,10 @@ _ACESSORIO = re.compile(
 
 # acessorio de LIMPEZA/SECAGEM "de mamadeira e bico" e um produto so (50a rodada: 'Escova para
 # Mamadeira e Bico' e escova). Porta/suporte nao entram aqui: 'porta mamadeira com bico' segue barrado.
-_ACESSORIO_LIMPEZA = re.compile(
+_ACESSORIO_LIMPEZA = re.compile(  # ate 3 palavras no meio: 'escova de limpeza para mamadeiras' (51a)
     r"(?:escova|escovinha|secador|secadora|escorredor|esterilizador|cesto)"
-    r"(?: ?(?:de|da|do|para|p))? ?mamadeir[a-z]*(?: ?(?:e|e de|e para|com) ?bi(?:co|cos|quinho|quinhos))?")
+    r"(?: (?:de|da|do|para|p|limpeza|lavar|secar|giratoria|silicone|nylon|esponja|com|e)){0,4} ?mamadeir[a-z]*"
+    r"(?: ?(?:e|e de|e para|com) ?bi(?:co|cos|quinho|quinhos))?")
 
 
 def _sem_acessorio(pedacos: list[str]) -> list[str]:
